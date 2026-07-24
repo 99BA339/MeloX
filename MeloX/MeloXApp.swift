@@ -9,6 +9,8 @@ struct MeloXApp: App {
     @State private var cloud: CloudMusicStore
     @State private var downloads: DownloadStore
     @State private var player: PlayerStore
+    @State private var lyrics: LyricsStore
+    @State private var floatingLyrics: FloatingLyricsController
     @State private var screenAwakeCoordinator: ScreenAwakeCoordinator
     @State private var isLowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
 
@@ -18,21 +20,28 @@ struct MeloXApp: App {
         let library = LibraryStore(api: api, settings: settings)
         let cloud = CloudMusicStore(api: api, settings: settings)
         let downloads = DownloadStore(api: api, settings: settings)
+        let player = PlayerStore(
+            api: api,
+            settings: settings,
+            downloads: downloads,
+            onPlaybackRecorded: { song in
+                library.recordRecentlyPlayed(song)
+            }
+        )
+        let lyrics = LyricsStore(api: api)
+        let floatingLyrics = FloatingLyricsController(
+            player: player,
+            settings: settings,
+            lyricsStore: lyrics
+        )
         _settings = State(initialValue: settings)
         _api = State(initialValue: api)
         _library = State(initialValue: library)
         _cloud = State(initialValue: cloud)
         _downloads = State(initialValue: downloads)
-        _player = State(
-            initialValue: PlayerStore(
-                api: api,
-                settings: settings,
-                downloads: downloads,
-                onPlaybackRecorded: { song in
-                    library.recordRecentlyPlayed(song)
-                }
-            )
-        )
+        _player = State(initialValue: player)
+        _lyrics = State(initialValue: lyrics)
+        _floatingLyrics = State(initialValue: floatingLyrics)
         _screenAwakeCoordinator = State(initialValue: ScreenAwakeCoordinator())
     }
 
@@ -45,6 +54,8 @@ struct MeloXApp: App {
                 .environment(cloud)
                 .environment(downloads)
                 .environment(player)
+                .environment(lyrics)
+                .environment(floatingLyrics)
                 .environment(screenAwakeCoordinator)
                 .environment(\.effectiveLyricsRefreshRate, effectiveLyricsRefreshRate)
                 .tint(.red)

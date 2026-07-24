@@ -87,6 +87,18 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    FloatingLyricsSettingsView()
+                } label: {
+                    Label("悬浮窗歌词", systemImage: "pip")
+                }
+            } header: {
+                Text("悬浮歌词")
+            } footer: {
+                Text("通过系统画中画在其他应用上方显示当前歌词和下一句。")
+            }
+
+            Section {
                 Picker("歌词样式", selection: $settings.lyricsStyle) {
                     ForEach(LyricsStyle.allCases) { style in
                         Label(style.title, systemImage: style.systemImage)

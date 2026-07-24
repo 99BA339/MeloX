@@ -10,14 +10,12 @@ enum NowPlayingPage: String, Hashable {
 struct NowPlayingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
-    @Environment(NeteaseAPI.self) private var api
     @Environment(PlayerStore.self) private var player
     @Environment(AppSettings.self) private var settings
+    @Environment(LyricsStore.self) private var lyricsStore
 
     @State private var page: NowPlayingPage
     @State private var showsLyricsControls = true
-    @State private var lyrics: [LyricLine] = []
-    @State private var lyricError: String?
     @State private var highlightedLyricID: LyricLine.ID?
     @State private var showsTextPVLandscapeSuggestion = false
     @Namespace private var pageArtworkNamespace
@@ -88,9 +86,6 @@ struct NowPlayingView: View {
         }
         .keepsScreenAwake(keepsPlayerScreenAwake)
         .preferredColorScheme(.dark)
-        .task(id: player.currentSong?.id) {
-            await loadLyrics()
-        }
         .task(id: lyricSynchronizationTrigger) {
             await synchronizeHighlightedLyric()
         }
@@ -164,6 +159,14 @@ struct NowPlayingView: View {
 
     private var hidesLyricsControls: Bool {
         page == .lyrics && !showsLyricsControls
+    }
+
+    private var lyrics: [LyricLine] {
+        lyricsStore.lyrics
+    }
+
+    private var lyricError: String? {
+        lyricsStore.errorMessage
     }
 
     private var keepsPlayerScreenAwake: Bool {
@@ -327,25 +330,6 @@ struct NowPlayingView: View {
         }
     }
 
-    private func loadLyrics() async {
-        lyrics = []
-        lyricError = nil
-        guard let song = player.currentSong else { return }
-        let songID = song.id
-
-        do {
-            let loadedLyrics = try await api.lyrics(id: songID)
-            try Task.checkCancellation()
-            guard player.currentSong?.id == songID else { return }
-            lyrics = loadedLyrics
-            lyricError = loadedLyrics.isEmpty ? "当前歌曲暂无滚动歌词。" : nil
-        } catch is CancellationError {
-            return
-        } catch {
-            guard player.currentSong?.id == songID else { return }
-            lyricError = error.localizedDescription
-        }
-    }
 }
 
 private struct LyricSynchronizationTrigger: Hashable {

@@ -5,6 +5,8 @@ struct ContentView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(LibraryStore.self) private var library
     @Environment(DownloadStore.self) private var downloads
+    @Environment(LyricsStore.self) private var lyrics
+    @Environment(FloatingLyricsController.self) private var floatingLyrics
 
     @State private var selectedTab: AppTab
     @State private var homePath = NavigationPath()
@@ -84,11 +86,38 @@ struct ContentView: View {
             .task {
                 await player.restore()
             }
+            .task(id: player.currentSong?.id) {
+                await lyrics.load(for: player.currentSong?.id)
+            }
+            .task {
+                await floatingLyrics.monitor()
+            }
             .task(id: settings.cookie) {
                 await library.refresh()
             }
+            .background(alignment: .topLeading) {
+                FloatingLyricsPictureInPictureSource(
+                    controller: floatingLyrics
+                )
+                .frame(width: 2, height: 2)
+                .opacity(0.01)
+                .accessibilityHidden(true)
+            }
             .onChange(of: selectedTab) { _, tab in
                 settings.lastSelectedTab = tab
+            }
+            .onChange(of: floatingLyrics.restorationRequestID) {
+                guard floatingLyrics.restorationRequestID > 0,
+                      player.currentSong != nil else {
+                    floatingLyrics.completeRestoration(success: false)
+                    return
+                }
+
+                playerPresentation = .nowPlaying
+                Task { @MainActor in
+                    await Task.yield()
+                    floatingLyrics.completeRestoration(success: true)
+                }
             }
             .alert(
                 "歌曲无法播放",
@@ -129,6 +158,26 @@ struct ContentView: View {
                 }
             } message: {
                 Text(downloads.errorMessage ?? "无法完成下载操作。")
+            }
+            .alert(
+                "无法打开悬浮歌词",
+                isPresented: Binding(
+                    get: { floatingLyrics.errorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            floatingLyrics.dismissError()
+                        }
+                    }
+                )
+            ) {
+                Button("好", role: .cancel) {
+                    floatingLyrics.dismissError()
+                }
+            } message: {
+                Text(
+                    floatingLyrics.errorMessage
+                        ?? "系统画中画暂时不可用。"
+                )
             }
             .appLaunchExperience()
     }

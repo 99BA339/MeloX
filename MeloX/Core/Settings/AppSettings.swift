@@ -406,6 +406,7 @@ final class AppSettings {
     let skylineLyrics: SkylineLyricsPreferences
     let textPV: TextPVPreferences
     let equalizer: AudioEqualizerPreferences
+    let floatingLyrics: FloatingLyricsPreferences
 
     @ObservationIgnored
     private let defaults: UserDefaults
@@ -415,6 +416,7 @@ final class AppSettings {
         skylineLyrics = SkylineLyricsPreferences(defaults: defaults)
         textPV = TextPVPreferences(defaults: defaults)
         equalizer = AudioEqualizerPreferences(defaults: defaults)
+        floatingLyrics = FloatingLyricsPreferences(defaults: defaults)
         hasCompletedOnboarding = defaults.bool(
             forKey: Key.hasCompletedOnboarding
         )
@@ -633,6 +635,7 @@ final class AppSettings {
         lyricsAdvanceTime = 0.2
         lyricsRefreshRate = .defaultValue
         textPV.reset()
+        floatingLyrics.reset()
         playerScreenAwakeMode = .lyrics
         rememberNowPlayingPage = false
         rememberedNowPlayingPage = "artwork"

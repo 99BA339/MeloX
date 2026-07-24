@@ -277,6 +277,10 @@ struct NowPlayingPageSelector: View {
 
             Spacer()
 
+            FloatingLyricsButton()
+
+            Spacer()
+
             pageButton(
                 page: .queue,
                 systemImage: "list.bullet",
