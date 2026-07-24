@@ -6,7 +6,7 @@ import SwiftUI
 
 @MainActor
 final class FloatingLyricsFrameRenderer {
-    static let renderSize = CGSize(width: 960, height: 540)
+    static let renderSize = CGSize(width: 960, height: 320)
 
     func makeSampleBuffer(
         presentation: FloatingLyricsPresentation,
@@ -99,8 +99,6 @@ final class FloatingLyricsFrameRenderer {
         }
 
         context.clear(CGRect(x: 0, y: 0, width: width, height: height))
-        context.translateBy(x: 0, y: CGFloat(height))
-        context.scaleBy(x: 1, y: -1)
         context.interpolationQuality = .high
         context.draw(
             image,

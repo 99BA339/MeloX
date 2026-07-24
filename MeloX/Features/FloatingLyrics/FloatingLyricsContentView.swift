@@ -29,45 +29,43 @@ struct FloatingLyricsContentView: View {
 
             Circle()
                 .fill(.red.opacity(0.18))
-                .frame(width: 420, height: 420)
-                .blur(radius: 90)
-                .offset(x: -360, y: -210)
+                .frame(width: 360, height: 360)
+                .blur(radius: 80)
+                .offset(x: -350, y: -150)
 
             VStack(alignment: .leading, spacing: 0) {
                 songHeader
 
-                Spacer(minLength: 24)
+                Spacer(minLength: 14)
 
                 currentLyric
 
-                Spacer(minLength: 24)
+                Spacer(minLength: 14)
 
                 nextLyric
             }
-            .padding(.horizontal, 54)
-            .padding(.vertical, 38)
+            .padding(.horizontal, 42)
+            .padding(.vertical, 24)
         }
         .foregroundStyle(.white)
         .clipped()
     }
 
     private var songHeader: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 12) {
             Image(systemName: presentation.isPlaying ? "waveform" : "pause.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(.red)
-                .frame(width: 30)
+                .frame(width: 26)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(presentation.title)
-                    .font(.system(size: 24, weight: .semibold))
-                    .lineLimit(1)
+            Text(presentation.title)
+                .font(.system(size: 21, weight: .semibold))
+                .lineLimit(1)
 
-                Text(presentation.artist)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.58))
-                    .lineLimit(1)
-            }
+            Text("· \(presentation.artist)")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(.white.opacity(0.58))
+                .lineLimit(1)
         }
     }
 
@@ -76,7 +74,7 @@ struct FloatingLyricsContentView: View {
             Text(presentation.currentText)
                 .font(
                     .system(
-                        size: 52 * presentation.fontScale,
+                        size: 44 * presentation.fontScale,
                         weight: .bold,
                         design: .rounded
                     )
@@ -89,7 +87,7 @@ struct FloatingLyricsContentView: View {
                 Text(translation)
                     .font(
                         .system(
-                            size: 25 * presentation.fontScale,
+                            size: 21 * presentation.fontScale,
                             weight: .semibold
                         )
                     )
@@ -106,13 +104,13 @@ struct FloatingLyricsContentView: View {
         if let nextText = presentation.nextText {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: "chevron.forward")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.red.opacity(0.8))
 
                 Text(nextText)
                     .font(
                         .system(
-                            size: 25 * presentation.fontScale,
+                            size: 21 * presentation.fontScale,
                             weight: .semibold
                         )
                     )
@@ -122,7 +120,7 @@ struct FloatingLyricsContentView: View {
             }
         } else {
             Color.clear
-                .frame(height: 30)
+                .frame(height: 24)
         }
     }
 }
@@ -141,5 +139,5 @@ struct FloatingLyricsContentView: View {
             fontScale: 1
         )
     )
-    .frame(width: 480, height: 270)
+    .frame(width: 480, height: 160)
 }
