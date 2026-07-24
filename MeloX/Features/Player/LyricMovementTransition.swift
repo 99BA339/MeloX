@@ -37,10 +37,13 @@ struct LyricMovementTransition: Equatable {
         ],
         at date: Date
     ) -> Self {
-        Self(
+        let animatedInitialOffsets = initialOffsetsByID.filter {
+            animationByID[$0.key] != nil
+        }
+        return Self(
             id: id,
             focusID: focusID,
-            initialOffsetsByID: initialOffsetsByID,
+            initialOffsetsByID: animatedInitialOffsets,
             animationByID: animationByID,
             startedAt: date
         )

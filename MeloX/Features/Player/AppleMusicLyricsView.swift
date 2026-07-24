@@ -634,17 +634,6 @@ struct AppleMusicLyricsView: View {
         )
     }
 
-    private func lyricSpringSettlingTailDuration(
-        animationDuration: TimeInterval,
-        bounce: Double
-    ) -> TimeInterval {
-        guard bounce > 0 else { return 0 }
-        return min(
-            max(animationDuration * bounce * 0.25, 1.0 / 60.0),
-            0.12
-        )
-    }
-
     private var focusMovementTrigger: LyricFocusMovementTrigger {
         LyricFocusMovementTrigger(
             highlightedLyricID: highlightedLyricID,
@@ -1002,9 +991,6 @@ struct AppleMusicLyricsView: View {
                 )
             }
         )
-        let longestMovementDuration = movementAnimations.values
-            .map(\.duration)
-            .max() ?? animationDuration
         var destinationOffsets = lyricMovementOffsetByID
         for id in orderedMovingIDs {
             destinationOffsets[id] = 0
@@ -1058,31 +1044,10 @@ struct AppleMusicLyricsView: View {
             startFocusColorTransition(to: highlightedLyricID)
         }
 
-        let totalMovementWait = max(
-            longestMovementDuration,
-            focusColorDelayAfterMovement + animationDuration
-        ) + (
-            usesBounce
-                ? lyricSpringSettlingTailDuration(
-                    animationDuration: longestMovementDuration,
-                    bounce: settings.lyricsFocusCascadeBounce
-                )
-                : 0
-        )
-        let remainingMovementWait =
-            totalMovementWait - focusColorDelayAfterMovement
-        if remainingMovementWait > 0 {
-            do {
-                try await Task.sleep(
-                    for: .seconds(remainingMovementWait)
-                )
-            } catch {
-                return
-            }
-        }
-        guard !Task.isCancelled,
-              lyricMovementTransition?.id == transitionID else { return }
-        completeCascadeMovement(to: highlightedLyricID)
+        // Keep the finished presentation state until the next focus change.
+        // Clearing it on the furthest row's timer can swap a retained row back
+        // to LazyVStack's layout frame while the current lyric is still playing.
+        // The next transition reads this state and retargets it continuously.
     }
 
     private func lyricMovementAnimation(
