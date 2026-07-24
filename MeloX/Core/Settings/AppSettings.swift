@@ -32,36 +32,6 @@ enum MusicQuality: String, CaseIterable, Identifiable, Codable {
 @MainActor
 @Observable
 final class AppSettings {
-    private static let lyricsFocusCascadeConfigurationVersion = 9
-    private static let previousDefaultLyricsFocusCascadeDelays = [
-        0.025,
-        0.017,
-        0.08,
-        0.12,
-    ]
-    private static let previousDefaultLyricsFocusCascadeDelayIncreases = [
-        0.005,
-        0.0,
-        0.002,
-        0.032,
-        0.12,
-    ]
-    private static let previousDefaultLyricsFocusCascadeBounceEnabled = true
-    private static let previousDefaultLyricsFocusCascadeBounces = [0.42]
-    private static let previousDefaultLyricsFocusCascadeDurations = [
-        0.48,
-        0.76,
-        0.3,
-    ]
-    private static let previousDefaultLyricsFontSizes = [25.0, 26.0]
-    private static let previousDefaultLyricsCurrentLineScales = [1.2]
-    private static let previousDefaultLyricsLineSpacings = [27.0]
-    private static let previousDefaultLyricsFocusPositions = [0.28, 0.19, 0.21]
-    private static let previousDefaultLyricsFocusSnapThresholds = [0.08]
-    private static let previousDefaultLyricsTranslationOpacities = [0.66]
-    private static let previousDefaultLyricsTranslationFontScales = [0.62]
-    private static let previousDefaultLyricsFocusScaleBounces = [0.18]
-    private static let previousDefaultLyricsFocusScaleBounceDurations = [0.3]
     static let defaultPlayerVolumeControlMode: PlayerVolumeControlMode = .system
     static let automaticCachePlaybackThresholdOptions = [3, 5, 10, 20]
     static let defaultLyricsFontSize = 28.0
@@ -145,8 +115,6 @@ final class AppSettings {
             "lyricsFocusCascadeDelayIncrease"
         static let lyricsFocusCascadeDuration = "lyricsFocusCascadeDuration"
         static let lyricsFocusSnapThreshold = "lyricsFocusSnapThreshold"
-        static let lyricsFocusCascadeConfigurationVersion =
-            "lyricsFocusCascadeConfigurationVersion"
         static let lyricsFocusCascadeBounceEnabled = "lyricsFocusCascadeBounceEnabled"
         static let lyricsFocusCascadeBounce = "lyricsFocusCascadeBounce"
         static let lyricsFocusScaleBounceEnabled = "lyricsFocusScaleBounceEnabled"
@@ -555,9 +523,6 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let appliesReferenceCascadeConfiguration = defaults.integer(
-            forKey: Key.lyricsFocusCascadeConfigurationVersion
-        ) < Self.lyricsFocusCascadeConfigurationVersion
         skylineLyrics = SkylineLyricsPreferences(defaults: defaults)
         textPV = TextPVPreferences(defaults: defaults)
         equalizer = AudioEqualizerPreferences(defaults: defaults)
@@ -600,50 +565,25 @@ final class AppSettings {
         default:
             lyricsStyle = LyricsStyle(rawValue: storedLyricsStyle) ?? .appleMusic
         }
-        let storedLyricsFontSize = defaults.object(
+        lyricsFontSize = defaults.object(
             forKey: Key.lyricsFontSize
-        ) as? Double
-        lyricsFontSize = Self.referenceLyricsValue(
-            storedLyricsFontSize,
-            previousDefaults: Self.previousDefaultLyricsFontSizes,
-            defaultValue: Self.defaultLyricsFontSize,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
-        let storedLyricsFontWeight = LyricsFontWeight(
+        ) as? Double ?? Self.defaultLyricsFontSize
+        lyricsFontWeight = LyricsFontWeight(
             rawValue: defaults.string(forKey: Key.lyricsFontWeight) ?? ""
-        )
-        if appliesReferenceCascadeConfiguration,
-           storedLyricsFontWeight == .bold {
-            lyricsFontWeight = Self.defaultLyricsFontWeight
-        } else {
-            lyricsFontWeight =
-                storedLyricsFontWeight ?? Self.defaultLyricsFontWeight
-        }
-        let storedCurrentLineScale = defaults.object(
+        ) ?? Self.defaultLyricsFontWeight
+        let storedLyricsCurrentLineScale = defaults.object(
             forKey: Key.lyricsCurrentLineScale
-        ) as? Double
-        let migratedCurrentLineScale = Self.referenceLyricsValue(
-            storedCurrentLineScale,
-            previousDefaults: Self.previousDefaultLyricsCurrentLineScales,
-            defaultValue: Self.defaultLyricsCurrentLineScale,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsCurrentLineScale
         lyricsCurrentLineScale = min(
             max(
-                migratedCurrentLineScale,
+                storedLyricsCurrentLineScale,
                 Self.lyricsCurrentLineScaleRange.lowerBound
             ),
             Self.lyricsCurrentLineScaleRange.upperBound
         )
-        let storedLyricsLineSpacing = defaults.object(
+        lyricsLineSpacing = defaults.object(
             forKey: Key.lyricsLineSpacing
-        ) as? Double
-        lyricsLineSpacing = Self.referenceLyricsValue(
-            storedLyricsLineSpacing,
-            previousDefaults: Self.previousDefaultLyricsLineSpacings,
-            defaultValue: Self.defaultLyricsLineSpacing,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsLineSpacing
         lyricsBlurIntensity = defaults.object(forKey: Key.lyricsBlurIntensity) as? Double
             ?? Self.defaultLyricsBlurIntensity
         let storedLyricsDistanceBlurScale = defaults.object(
@@ -690,103 +630,53 @@ final class AppSettings {
         lyricsTranslationDisplayMode = LyricsTranslationDisplayMode(
             rawValue: defaults.string(forKey: Key.lyricsTranslationDisplayMode) ?? ""
         ) ?? .focusedLine
-        let storedTranslationFontScale = defaults.object(
+        lyricsTranslationFontScale = defaults.object(
             forKey: Key.lyricsTranslationFontScale
-        ) as? Double
-        lyricsTranslationFontScale = Self.referenceLyricsValue(
-            storedTranslationFontScale,
-            previousDefaults:
-                Self.previousDefaultLyricsTranslationFontScales,
-            defaultValue: Self.defaultLyricsTranslationFontScale,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
-        let storedTranslationOpacity = defaults.object(
+        ) as? Double ?? Self.defaultLyricsTranslationFontScale
+        lyricsTranslationOpacity = defaults.object(
             forKey: Key.lyricsTranslationOpacity
-        ) as? Double
-        lyricsTranslationOpacity = Self.referenceLyricsValue(
-            storedTranslationOpacity,
-            previousDefaults: Self.previousDefaultLyricsTranslationOpacities,
-            defaultValue: Self.defaultLyricsTranslationOpacity,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsTranslationOpacity
         lyricsAutoFollow = defaults.object(forKey: Key.lyricsAutoFollow) as? Bool ?? true
         lyricsFollowDelay = defaults.object(forKey: Key.lyricsFollowDelay) as? Double ?? 3
         let storedLyricsFocusPosition = defaults.object(
             forKey: Key.lyricsFocusPosition
-        ) as? Double
-        let migratedLyricsFocusPosition = Self.referenceLyricsValue(
-            storedLyricsFocusPosition,
-            previousDefaults: Self.previousDefaultLyricsFocusPositions,
-            defaultValue: Self.defaultLyricsFocusPosition,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusPosition
         lyricsFocusPosition = min(
             max(
-                migratedLyricsFocusPosition,
+                storedLyricsFocusPosition,
                 Self.lyricsFocusPositionRange.lowerBound
             ),
             Self.lyricsFocusPositionRange.upperBound
         )
         let storedFocusCascadeDelay = defaults.object(
             forKey: Key.lyricsFocusCascadeDelay
-        ) as? Double
-        let migratedFocusCascadeDelay = Self.referenceLyricsValue(
-            storedFocusCascadeDelay,
-            previousDefaults: Self.previousDefaultLyricsFocusCascadeDelays,
-            defaultValue: Self.defaultLyricsFocusCascadeDelay,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusCascadeDelay
         lyricsFocusCascadeDelay = min(
             max(
-                migratedFocusCascadeDelay,
+                storedFocusCascadeDelay,
                 Self.lyricsFocusCascadeDelayRange.lowerBound
             ),
             Self.lyricsFocusCascadeDelayRange.upperBound
         )
         let storedFocusCascadeDelayIncrease = defaults.object(
             forKey: Key.lyricsFocusCascadeDelayIncrease
-        ) as? Double
-        let migratedFocusCascadeDelayIncrease = Self.referenceLyricsValue(
-            storedFocusCascadeDelayIncrease,
-            previousDefaults:
-                Self.previousDefaultLyricsFocusCascadeDelayIncreases,
-            defaultValue: Self.defaultLyricsFocusCascadeDelayIncrease,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusCascadeDelayIncrease
         lyricsFocusCascadeDelayIncrease = min(
             max(
-                migratedFocusCascadeDelayIncrease,
+                storedFocusCascadeDelayIncrease,
                 Self.lyricsFocusCascadeDelayIncreaseRange.lowerBound
             ),
             Self.lyricsFocusCascadeDelayIncreaseRange.upperBound
         )
-        let storedFocusCascadeBounceEnabled = defaults.object(
+        lyricsFocusCascadeBounceEnabled = defaults.object(
             forKey: Key.lyricsFocusCascadeBounceEnabled
-        ) as? Bool
-        if appliesReferenceCascadeConfiguration,
-           storedFocusCascadeBounceEnabled
-            == Self.previousDefaultLyricsFocusCascadeBounceEnabled {
-            lyricsFocusCascadeBounceEnabled =
-                Self.defaultLyricsFocusCascadeBounceEnabled
-        } else {
-            lyricsFocusCascadeBounceEnabled =
-                storedFocusCascadeBounceEnabled
-                    ?? Self.defaultLyricsFocusCascadeBounceEnabled
-        }
+        ) as? Bool ?? Self.defaultLyricsFocusCascadeBounceEnabled
         let storedFocusCascadeBounce = defaults.object(
             forKey: Key.lyricsFocusCascadeBounce
-        ) as? Double
-        let migratedFocusCascadeBounce = Self.referenceLyricsValue(
-            storedFocusCascadeBounce,
-            previousDefaults:
-                Self.previousDefaultLyricsFocusCascadeBounces,
-            defaultValue: Self.defaultLyricsFocusCascadeBounce,
-            appliesReferenceConfiguration:
-                appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusCascadeBounce
         lyricsFocusCascadeBounce = min(
             max(
-                migratedFocusCascadeBounce,
+                storedFocusCascadeBounce,
                 Self.lyricsFocusCascadeBounceRange.lowerBound
             ),
             Self.lyricsFocusCascadeBounceRange.upperBound
@@ -796,33 +686,20 @@ final class AppSettings {
         ) as? Bool ?? Self.defaultLyricsFocusScaleBounceEnabled
         let storedFocusScaleBounce = defaults.object(
             forKey: Key.lyricsFocusScaleBounce
-        ) as? Double
-        let migratedFocusScaleBounce = Self.referenceLyricsValue(
-            storedFocusScaleBounce,
-            previousDefaults: Self.previousDefaultLyricsFocusScaleBounces,
-            defaultValue: Self.defaultLyricsFocusScaleBounce,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusScaleBounce
         lyricsFocusScaleBounce = min(
             max(
-                migratedFocusScaleBounce,
+                storedFocusScaleBounce,
                 Self.lyricsFocusScaleBounceRange.lowerBound
             ),
             Self.lyricsFocusScaleBounceRange.upperBound
         )
         let storedFocusScaleBounceDuration = defaults.object(
             forKey: Key.lyricsFocusScaleBounceDuration
-        ) as? Double
-        let migratedFocusScaleBounceDuration = Self.referenceLyricsValue(
-            storedFocusScaleBounceDuration,
-            previousDefaults:
-                Self.previousDefaultLyricsFocusScaleBounceDurations,
-            defaultValue: Self.defaultLyricsFocusScaleBounceDuration,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusScaleBounceDuration
         lyricsFocusScaleBounceDuration = min(
             max(
-                migratedFocusScaleBounceDuration,
+                storedFocusScaleBounceDuration,
                 Self.lyricsFocusScaleBounceDurationRange.lowerBound
             ),
             Self.lyricsFocusScaleBounceDurationRange.upperBound
@@ -833,31 +710,20 @@ final class AppSettings {
             ?? defaults.object(
                 forKey: Key.legacyLyricsFocusCascadeMinimumBounceDuration
             ) as? Double
-        let migratedFocusCascadeDuration = Self.referenceLyricsValue(
-            storedFocusCascadeDuration,
-            previousDefaults: Self.previousDefaultLyricsFocusCascadeDurations,
-            defaultValue: Self.defaultLyricsFocusCascadeDuration,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+            ?? Self.defaultLyricsFocusCascadeDuration
         lyricsFocusCascadeDuration = min(
             max(
-                migratedFocusCascadeDuration,
+                storedFocusCascadeDuration,
                 Self.lyricsFocusCascadeDurationRange.lowerBound
             ),
             Self.lyricsFocusCascadeDurationRange.upperBound
         )
         let storedFocusSnapThreshold = defaults.object(
             forKey: Key.lyricsFocusSnapThreshold
-        ) as? Double
-        let migratedFocusSnapThreshold = Self.referenceLyricsValue(
-            storedFocusSnapThreshold,
-            previousDefaults: Self.previousDefaultLyricsFocusSnapThresholds,
-            defaultValue: Self.defaultLyricsFocusSnapThreshold,
-            appliesReferenceConfiguration: appliesReferenceCascadeConfiguration
-        )
+        ) as? Double ?? Self.defaultLyricsFocusSnapThreshold
         lyricsFocusSnapThreshold = min(
             max(
-                migratedFocusSnapThreshold,
+                storedFocusSnapThreshold,
                 Self.lyricsFocusSnapThresholdRange.lowerBound
             ),
             Self.lyricsFocusSnapThresholdRange.upperBound
@@ -906,25 +772,6 @@ final class AppSettings {
         automaticCacheQuality = MusicQuality(
             rawValue: defaults.string(forKey: Key.automaticCacheQuality) ?? ""
         ) ?? .high
-        defaults.set(
-            Self.lyricsFocusCascadeConfigurationVersion,
-            forKey: Key.lyricsFocusCascadeConfigurationVersion
-        )
-    }
-
-    private static func referenceLyricsValue(
-        _ storedValue: Double?,
-        previousDefaults: [Double],
-        defaultValue: Double,
-        appliesReferenceConfiguration: Bool
-    ) -> Double {
-        guard let storedValue else { return defaultValue }
-        guard appliesReferenceConfiguration else { return storedValue }
-
-        let matchesPreviousDefault = previousDefaults.contains { previousDefault in
-            abs(storedValue - previousDefault) < 0.000_1
-        }
-        return matchesPreviousDefault ? defaultValue : storedValue
     }
 
     func clearAccount() {
