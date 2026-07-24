@@ -5,6 +5,7 @@ struct PlayerSettingsView: View {
     @Environment(PlayerStore.self) private var player
 
     @State private var showsResetConfirmation = false
+    @State private var isResettingSettings = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -202,15 +203,32 @@ struct PlayerSettingsView: View {
 
             Section {
                 valueSlider(
-                    title: "每行切换延迟",
+                    title: "基础错峰间隔",
                     value: $settings.lyricsFocusCascadeDelay,
                     range: AppSettings.lyricsFocusCascadeDelayRange,
-                    step: 0.005,
+                    step: 0.001,
                     valueText: "\(Int((settings.lyricsFocusCascadeDelay * 1_000).rounded())) 毫秒"
                 )
 
+                valueSlider(
+                    title: "逐句延迟增量",
+                    value: $settings.lyricsFocusCascadeDelayIncrease,
+                    range: AppSettings.lyricsFocusCascadeDelayIncreaseRange,
+                    step: 0.001,
+                    valueText: "\(Int((settings.lyricsFocusCascadeDelayIncrease * 1_000).rounded())) 毫秒/句"
+                )
+                .disabled(settings.lyricsFocusCascadeDelay == 0)
+
+                valueSlider(
+                    title: "位移收束时长",
+                    value: $settings.lyricsFocusCascadeDuration,
+                    range: AppSettings.lyricsFocusCascadeDurationRange,
+                    step: 0.01,
+                    valueText: "\(settings.lyricsFocusCascadeDuration.formatted(.number.precision(.fractionLength(2)))) 秒"
+                )
+
                 Toggle(
-                    "错峰轻微回弹",
+                    "启用位移回弹",
                     isOn: $settings.lyricsFocusCascadeBounceEnabled
                 )
 
@@ -221,14 +239,6 @@ struct PlayerSettingsView: View {
                         range: AppSettings.lyricsFocusCascadeBounceRange,
                         step: 0.01,
                         valueText: "\(Int((settings.lyricsFocusCascadeBounce * 100).rounded()))%"
-                    )
-
-                    valueSlider(
-                        title: "回弹最短时长",
-                        value: $settings.lyricsFocusCascadeMinimumBounceDuration,
-                        range: AppSettings.lyricsFocusCascadeMinimumBounceDurationRange,
-                        step: 0.01,
-                        valueText: "\(settings.lyricsFocusCascadeMinimumBounceDuration.formatted(.number.precision(.fractionLength(2)))) 秒"
                     )
                 }
 
@@ -242,7 +252,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("歌词动画")
             } footer: {
-                Text("焦点颜色默认提前 120 毫秒开始过渡；正值表示颜色提前，负值表示颜色延后。可视顶部第一行与模糊同时开始变化，随后各行依次向上。回弹默认使用 42% 弹性和 0.76 秒最短时长；剩余时间不足时会依次取消回弹并压缩逐行延迟与过渡时长，只有连最短 50 毫秒过渡也无法保留时才直接同步。每行延迟设为 0 可恢复整体滚动。")
+                Text("默认使用 25 毫秒基础间隔、每句增加 5 毫秒、0.48 秒无回弹收束，焦点颜色与位移同时开始。逐句延迟增量设为 0 可保持固定间隔；基础错峰间隔设为 0 可恢复整体滚动。剩余播放时间不足时会自动压缩错峰和位移时长。")
             }
 
             Section {
@@ -344,6 +354,7 @@ struct PlayerSettingsView: View {
                 Button("恢复播放器默认设置", role: .destructive) {
                     showsResetConfirmation = true
                 }
+                .disabled(isResettingSettings)
             }
         }
         .navigationTitle("播放器")
@@ -352,10 +363,27 @@ struct PlayerSettingsView: View {
         }
         .confirmationDialog("恢复播放器默认设置？", isPresented: $showsResetConfirmation) {
             Button("恢复默认设置", role: .destructive) {
-                settings.resetPlayerSettings()
-                player.applyVolumeControlMode()
-                player.applyEqualizerSettings()
+                resetPlayerSettings()
             }
+        }
+    }
+
+    private func resetPlayerSettings() {
+        guard !isResettingSettings else { return }
+        isResettingSettings = true
+
+        Task { @MainActor in
+            await Task.yield()
+
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                settings.resetPlayerSettings()
+            }
+
+            await Task.yield()
+            player.applyEqualizerSettings()
+            isResettingSettings = false
         }
     }
 

@@ -646,10 +646,9 @@ struct AppleMusicLyricsView: View {
             for: highlightedLyricID,
             in: lyrics
         )
-        let bounceAnimationDuration = LyricPlaybackTimeline.focusCascadeAnimationDuration(
+        let cascadeAnimationDuration = LyricPlaybackTimeline.focusCascadeAnimationDuration(
             baseDuration: baseAnimationDuration,
-            bounceEnabled: true,
-            minimumBounceDuration: settings.lyricsFocusCascadeMinimumBounceDuration
+            preferredDuration: settings.lyricsFocusCascadeDuration
         )
         let prefersCascadeBounce = settings.lyricsFocusCascadeBounceEnabled
         let focusColorLeadTime = lyricsFocusColorLeadTime
@@ -738,9 +737,11 @@ struct AppleMusicLyricsView: View {
         guard let cascadeTiming = LyricPlaybackTimeline.focusCascadeTiming(
             visibleLineCount: orderedMovingIDs.count,
             preferredDelayPerLine: settings.lyricsFocusCascadeDelay,
+            preferredDelayIncreasePerLine:
+                settings.lyricsFocusCascadeDelayIncrease,
             focusColorLeadTime: focusColorLeadTime,
             baseAnimationDuration: baseAnimationDuration,
-            bounceAnimationDuration: bounceAnimationDuration,
+            preferredAnimationDuration: cascadeAnimationDuration,
             prefersBounce: prefersCascadeBounce,
             remainingDuration: remainingFocusDuration(for: highlightedLyricID),
             highlightedLyricID: highlightedLyricID,
@@ -753,6 +754,7 @@ struct AppleMusicLyricsView: View {
             orderedMovingIDs,
             to: highlightedLyricID,
             delayPerLine: cascadeTiming.delayPerLine,
+            delayIncreasePerLine: cascadeTiming.delayIncreasePerLine,
             usesBounce: cascadeTiming.usesBounce,
             focusColorLeadTime: focusColorLeadTime,
             animationDuration: cascadeTiming.animationDuration
@@ -763,6 +765,7 @@ struct AppleMusicLyricsView: View {
         _ orderedMovingIDs: [LyricLine.ID],
         to highlightedLyricID: LyricLine.ID,
         delayPerLine: TimeInterval,
+        delayIncreasePerLine: TimeInterval,
         usesBounce: Bool,
         focusColorLeadTime: TimeInterval,
         animationDuration: TimeInterval
@@ -796,6 +799,7 @@ struct AppleMusicLyricsView: View {
                 visibleOrder: order,
                 visibleLineCount: orderedMovingIDs.count,
                 preferredDelayPerLine: delayPerLine,
+                preferredDelayIncreasePerLine: delayIncreasePerLine,
                 highlightedLyricID: highlightedLyricID,
                 in: lyrics
             )

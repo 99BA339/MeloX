@@ -27,10 +27,6 @@ final class FloatingLyricsPreferences {
 
     var fontScale: Double {
         didSet {
-            fontScale = min(
-                max(fontScale, Self.fontScaleRange.lowerBound),
-                Self.fontScaleRange.upperBound
-            )
             defaults.set(fontScale, forKey: Key.fontScale)
         }
     }
