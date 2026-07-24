@@ -1,127 +1,215 @@
 import SwiftUI
+import UIKit
 
 struct FloatingLyricsPresentation: Equatable {
     let songID: Int?
-    let lyricID: LyricLine.ID?
     let title: String
     let artist: String
-    let currentText: String
-    let translation: String?
-    let nextText: String?
+    let currentLine: LyricLine?
+    let upcomingLines: [LyricLine]
+    let fallbackText: String
+    let playbackTime: TimeInterval
     let isPlaying: Bool
+    let usesPseudoTiming: Bool
+    let showsTranslation: Bool
     let fontScale: Double
 }
 
 struct FloatingLyricsContentView: View {
     let presentation: FloatingLyricsPresentation
+    let artworkImage: UIImage?
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.02, blue: 0.04),
-                    .black,
-                    Color(red: 0.06, green: 0.01, blue: 0.02),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            ambientBackground
 
-            Circle()
-                .fill(.red.opacity(0.18))
-                .frame(width: 360, height: 360)
-                .blur(radius: 80)
-                .offset(x: -350, y: -150)
+            HStack(spacing: 24) {
+                artworkPanel
+                    .frame(width: 190)
 
-            VStack(alignment: .leading, spacing: 0) {
-                songHeader
+                Rectangle()
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 1)
 
-                Spacer(minLength: 14)
-
-                currentLyric
-
-                Spacer(minLength: 14)
-
-                nextLyric
+                lyricsPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 42)
+            .padding(.horizontal, 26)
             .padding(.vertical, 24)
         }
         .foregroundStyle(.white)
         .clipped()
     }
 
-    private var songHeader: some View {
-        HStack(spacing: 12) {
-            Image(systemName: presentation.isPlaying ? "waveform" : "pause.fill")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(.red)
-                .frame(width: 26)
+    @ViewBuilder
+    private var ambientBackground: some View {
+        if let artworkImage {
+            Image(uiImage: artworkImage)
+                .resizable()
+                .scaledToFill()
+                .scaleEffect(1.18)
+                .blur(radius: 54)
+                .saturation(1.15)
+                .opacity(0.32)
+        } else {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.24, green: 0.03, blue: 0.06),
+                    .black,
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        Color.black.opacity(artworkImage == nil ? 0.36 : 0.66)
+
+        LinearGradient(
+            colors: [
+                .clear,
+                .black.opacity(0.45),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var artworkPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            albumArtwork
+
+            Spacer(minLength: 12)
 
             Text(presentation.title)
-                .font(.system(size: 21, weight: .semibold))
+                .font(.system(size: 21, weight: .bold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
-            Text("· \(presentation.artist)")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(.white.opacity(0.58))
+            Text(presentation.artist)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white.opacity(0.62))
                 .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var albumArtwork: some View {
+        ZStack {
+            if let artworkImage {
+                Image(uiImage: artworkImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.16),
+                        .white.opacity(0.05),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Image(systemName: "music.note")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.52))
+            }
+        }
+        .frame(width: 176, height: 176)
+        .clipShape(.rect(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.38), radius: 18, y: 9)
+    }
+
+    private var lyricsPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            currentLyric
+
+            VStack(alignment: .leading, spacing: 11) {
+                ForEach(
+                    Array(presentation.upcomingLines.prefix(2).enumerated()),
+                    id: \.element.id
+                ) { index, line in
+                    Text(verbatim: line.text)
+                        .font(
+                            .system(
+                                size: (index == 0 ? 22 : 19)
+                                    * presentation.fontScale,
+                                weight: .bold
+                            )
+                        )
+                        .foregroundStyle(
+                            .white.opacity(index == 0 ? 0.34 : 0.18)
+                        )
+                        .blur(radius: index == 0 ? 0.35 : 0.8)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .mask {
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.82),
+                    .init(color: .clear, location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
     }
 
+    @ViewBuilder
     private var currentLyric: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Text(presentation.currentText)
+        if let line = presentation.currentLine {
+            SynchronizedLyricText(
+                line: line,
+                isPlaybackLine: true,
+                usesPseudoTiming: presentation.usesPseudoTiming,
+                fontSize: 38 * presentation.fontScale,
+                fontScale: presentation.fontScale,
+                primaryColor: .white,
+                showsTranslation: presentation.showsTranslation,
+                layoutWidth: 630,
+                playbackScaleRange: 1...1.035,
+                playbackScaleStartDelay: 0.08
+            )
+            .scaleEffect(
+                0.97 + 0.03 * focusEntryProgress,
+                anchor: .leading
+            )
+            .offset(y: 12 * (1 - focusEntryProgress))
+            .opacity(0.55 + 0.45 * focusEntryProgress)
+        } else {
+            Text(presentation.fallbackText)
                 .font(
                     .system(
-                        size: 44 * presentation.fontScale,
+                        size: 38 * presentation.fontScale,
                         weight: .bold,
                         design: .rounded
                     )
                 )
+                .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(2)
-                .minimumScaleFactor(0.55)
-                .shadow(color: .red.opacity(0.28), radius: 16)
-
-            if let translation = presentation.translation {
-                Text(translation)
-                    .font(
-                        .system(
-                            size: 21 * presentation.fontScale,
-                            weight: .semibold
-                        )
-                    )
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.65)
-            }
+                .minimumScaleFactor(0.62)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private var nextLyric: some View {
-        if let nextText = presentation.nextText {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: "chevron.forward")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.red.opacity(0.8))
-
-                Text(nextText)
-                    .font(
-                        .system(
-                            size: 21 * presentation.fontScale,
-                            weight: .semibold
-                        )
-                    )
-                    .foregroundStyle(.white.opacity(0.42))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-        } else {
-            Color.clear
-                .frame(height: 24)
-        }
+    private var focusEntryProgress: CGFloat {
+        guard let line = presentation.currentLine else { return 1 }
+        let rawProgress = min(
+            max((presentation.playbackTime - line.time) / 0.36, 0),
+            1
+        )
+        let easedProgress = rawProgress
+            * rawProgress
+            * (3 - 2 * rawProgress)
+        return CGFloat(easedProgress)
     }
 }
 
@@ -129,15 +217,27 @@ struct FloatingLyricsContentView: View {
     FloatingLyricsContentView(
         presentation: FloatingLyricsPresentation(
             songID: 1,
-            lyricID: "12.5-示例歌词",
             title: "正在播放的歌曲",
             artist: "歌手",
-            currentText: "让音乐陪你去往更远的地方",
-            translation: "Let the music carry you farther.",
-            nextText: "下一句歌词会显示在这里",
+            currentLine: nil,
+            upcomingLines: [
+                LyricLine(
+                    time: 18,
+                    text: "下一句歌词会显示在这里"
+                ),
+                LyricLine(
+                    time: 24,
+                    text: "更远处的歌词会逐渐淡出"
+                ),
+            ],
+            fallbackText: "让音乐陪你去往更远的地方",
+            playbackTime: 12.5,
             isPlaying: true,
+            usesPseudoTiming: false,
+            showsTranslation: true,
             fontScale: 1
-        )
+        ),
+        artworkImage: UIImage(named: "MeloXLogo")
     )
     .frame(width: 480, height: 160)
 }

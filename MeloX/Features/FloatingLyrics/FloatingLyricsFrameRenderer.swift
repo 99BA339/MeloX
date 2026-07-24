@@ -3,20 +3,36 @@ import CoreGraphics
 import CoreMedia
 import CoreVideo
 import SwiftUI
+import UIKit
 
 @MainActor
 final class FloatingLyricsFrameRenderer {
     static let renderSize = CGSize(width: 960, height: 320)
 
+    private let player: PlayerStore
+    private let settings: AppSettings
+
+    init(player: PlayerStore, settings: AppSettings) {
+        self.player = player
+        self.settings = settings
+    }
+
     func makeSampleBuffer(
         presentation: FloatingLyricsPresentation,
+        artworkImage: UIImage?,
         presentationTime: CMTime
     ) -> CMSampleBuffer? {
-        let content = FloatingLyricsContentView(presentation: presentation)
+        let content = FloatingLyricsContentView(
+            presentation: presentation,
+            artworkImage: artworkImage
+        )
             .frame(
                 width: Self.renderSize.width,
                 height: Self.renderSize.height
             )
+            .environment(player)
+            .environment(settings)
+            .environment(\.effectiveLyricsRefreshRate, .fps30)
 
         let imageRenderer = ImageRenderer(content: content)
         imageRenderer.scale = 1

@@ -26,7 +26,10 @@ final class FloatingLyricsController: NSObject {
     private let displayLayer = AVSampleBufferDisplayLayer()
 
     @ObservationIgnored
-    private let frameRenderer = FloatingLyricsFrameRenderer()
+    private let frameRenderer: FloatingLyricsFrameRenderer
+
+    @ObservationIgnored
+    private let artworkLoader = FloatingLyricsArtworkLoader()
 
     @ObservationIgnored
     private var pictureInPictureController: AVPictureInPictureController?
@@ -54,6 +57,10 @@ final class FloatingLyricsController: NSObject {
         self.player = player
         self.settings = settings
         self.lyricsStore = lyricsStore
+        frameRenderer = FloatingLyricsFrameRenderer(
+            player: player,
+            settings: settings
+        )
         isSupported = AVPictureInPictureController
             .isPictureInPictureSupported()
         super.init()
@@ -77,17 +84,22 @@ final class FloatingLyricsController: NSObject {
     }
 
     func monitor() async {
+        refreshArtworkIfNeeded()
         refreshFrame(force: true)
 
         while !Task.isCancelled {
-            isPossible = pictureInPictureController?
+            let pictureInPicturePossible = pictureInPictureController?
                 .isPictureInPicturePossible ?? false
+            if isPossible != pictureInPicturePossible {
+                isPossible = pictureInPicturePossible
+            }
+            refreshArtworkIfNeeded()
             synchronizePlaybackState()
             refreshFrame()
 
             do {
                 try await Task.sleep(
-                    for: .milliseconds(isActive ? 200 : 800)
+                    for: .seconds(frameUpdateInterval)
                 )
             } catch {
                 return
@@ -106,6 +118,7 @@ final class FloatingLyricsController: NSObject {
             return
         }
 
+        refreshArtworkIfNeeded()
         refreshFrame(force: true)
         synchronizePlaybackState(force: true)
         isPossible = pictureInPictureController
@@ -130,6 +143,7 @@ final class FloatingLyricsController: NSObject {
         }
         sourceHostLayer = hostLayer
         displayLayer.frame = bounds
+        refreshArtworkIfNeeded()
         refreshFrame(force: true)
     }
 
@@ -204,6 +218,7 @@ final class FloatingLyricsController: NSObject {
         } ?? CMClockGetTime(CMClockGetHostTimeClock())
         guard let sampleBuffer = frameRenderer.makeSampleBuffer(
             presentation: presentation,
+            artworkImage: artworkLoader.image,
             presentationTime: presentationTime
         ) else {
             return
@@ -213,17 +228,39 @@ final class FloatingLyricsController: NSObject {
         lastPresentation = presentation
     }
 
+    private var frameUpdateInterval: TimeInterval {
+        if isActive, player.isPlaying {
+            return max(
+                settings.lyricsRefreshRate.minimumInterval,
+                1.0 / 30.0
+            )
+        }
+        return isActive ? 0.25 : 0.8
+    }
+
+    private func refreshArtworkIfNeeded() {
+        let song = player.currentSong
+        artworkLoader.loadIfNeeded(
+            songID: song?.id,
+            url: song?.album?.artworkURL
+        ) { [weak self] in
+            self?.refreshFrame(force: true)
+        }
+    }
+
     private func makePresentation() -> FloatingLyricsPresentation {
         guard let song = player.currentSong else {
             return FloatingLyricsPresentation(
                 songID: nil,
-                lyricID: nil,
                 title: "MeloX",
                 artist: "悬浮歌词",
-                currentText: "播放音乐后显示歌词",
-                translation: nil,
-                nextText: nil,
+                currentLine: nil,
+                upcomingLines: [],
+                fallbackText: "播放音乐后显示歌词",
+                playbackTime: 0,
                 isPlaying: false,
+                usesPseudoTiming: false,
+                showsTranslation: false,
                 fontScale: settings.floatingLyrics.fontScale
             )
         }
@@ -231,45 +268,53 @@ final class FloatingLyricsController: NSObject {
         let lyrics = lyricsStore.songID == song.id
             ? lyricsStore.lyrics
             : []
+        let playbackTime = player.estimatedProgress()
+            + settings.lyricsAdvanceTime
         let position = LyricPlaybackTimeline.position(
-            at: player.estimatedProgress() + settings.lyricsAdvanceTime,
+            at: playbackTime,
             in: lyrics
         )
         let currentIndex = position.highlightedLyricID.flatMap { lyricID in
             lyrics.firstIndex(where: { $0.id == lyricID })
         }
         let currentLine = currentIndex.map { lyrics[$0] }
-        let nextLine = currentIndex.flatMap { index -> LyricLine? in
-            let nextIndex = lyrics.index(after: index)
-            return nextIndex < lyrics.endIndex ? lyrics[nextIndex] : nil
-        } ?? lyrics.first
-
-        let currentText: String
-        if let currentLine {
-            currentText = currentLine.text
-        } else if lyricsStore.songID != song.id || lyricsStore.isLoading {
-            currentText = "正在载入歌词…"
-        } else if lyricsStore.errorMessage != nil || lyrics.isEmpty {
-            currentText = "当前歌曲暂无滚动歌词"
+        let upcomingLines: [LyricLine]
+        if settings.floatingLyrics.showsNextLine {
+            let firstUpcomingIndex = currentIndex.map {
+                lyrics.index(after: $0)
+            } ?? lyrics.startIndex
+            upcomingLines = firstUpcomingIndex < lyrics.endIndex
+                ? Array(lyrics[firstUpcomingIndex...].prefix(2))
+                : []
         } else {
-            currentText = "♪"
+            upcomingLines = []
         }
 
-        let showsTranslation = settings.lyricsTranslationEnabled
-            && settings.floatingLyrics.showsTranslation
+        let fallbackText: String
+        if let currentLine {
+            fallbackText = currentLine.text
+        } else if lyricsStore.songID != song.id || lyricsStore.isLoading {
+            fallbackText = "正在载入歌词…"
+        } else if lyricsStore.errorMessage != nil || lyrics.isEmpty {
+            fallbackText = "当前歌曲暂无滚动歌词"
+        } else {
+            fallbackText = "♪"
+        }
+
+        let usesPseudoTiming = settings.lyricsPseudoWordByWord
+            && !lyrics.contains(where: \.isSyllableSynced)
         return FloatingLyricsPresentation(
             songID: song.id,
-            lyricID: currentLine?.id,
             title: song.name,
             artist: song.artistText,
-            currentText: currentText,
-            translation: showsTranslation
-                ? currentLine?.translation
-                : nil,
-            nextText: settings.floatingLyrics.showsNextLine
-                ? nextLine?.text
-                : nil,
+            currentLine: currentLine,
+            upcomingLines: upcomingLines,
+            fallbackText: fallbackText,
+            playbackTime: playbackTime,
             isPlaying: player.isPlaying,
+            usesPseudoTiming: usesPseudoTiming,
+            showsTranslation: settings.lyricsTranslationEnabled
+                && settings.floatingLyrics.showsTranslation,
             fontScale: settings.floatingLyrics.fontScale
         )
     }
