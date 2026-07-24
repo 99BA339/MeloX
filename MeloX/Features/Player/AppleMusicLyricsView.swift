@@ -135,6 +135,10 @@ struct AppleMusicLyricsView: View {
                     for: proxy.size.height
                 )
                 let lyricLayoutWidth = max(proxy.size.width / currentLineScale, 1)
+                let bottomContentPadding = max(
+                    proxy.size.height * (1 - focusPosition),
+                    40
+                )
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: CGFloat(settings.lyricsLineSpacing)) {
@@ -269,7 +273,17 @@ struct AppleMusicLyricsView: View {
                     }
                     .scrollTargetLayout()
                     .padding(.top, max(proxy.size.height * focusPosition, 40))
-                    .padding(.bottom, max(proxy.size.height * (1 - focusPosition), 40))
+                    .padding(.bottom, bottomContentPadding)
+                    .overlay(alignment: .bottom) {
+                        Color.clear
+                            .frame(maxWidth: .infinity)
+                            .frame(height: bottomContentPadding)
+                            .contentShape(.rect)
+                            .onTapGesture {
+                                onToggleInterface?()
+                            }
+                            .accessibilityHidden(true)
+                    }
                 }
                 .scrollIndicators(.hidden)
                 .scrollClipDisabled()
