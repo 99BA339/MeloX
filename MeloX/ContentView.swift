@@ -87,7 +87,10 @@ struct ContentView: View {
                 await player.restore()
             }
             .task(id: player.currentSong?.id) {
-                await lyrics.load(for: player.currentSong?.id)
+                let songID = player.currentSong?.id
+                await lyrics.load(for: songID)
+                guard !Task.isCancelled else { return }
+                player.setNowPlayingLyrics(lyrics.lyrics, for: songID)
             }
             .task {
                 await floatingLyrics.monitor()

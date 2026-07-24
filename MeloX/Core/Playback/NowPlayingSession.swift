@@ -48,7 +48,7 @@ final class NowPlayingSession {
         artworkTask?.cancel()
         nowPlayingInfo = [
             MPMediaItemPropertyTitle: song.name,
-            MPMediaItemPropertyArtist: song.artistText,
+            MPMediaItemPropertyArtist: Self.trackDescription(for: song),
             MPMediaItemPropertyAlbumTitle: song.album?.name ?? "",
             MPMediaItemPropertyPersistentID: NSNumber(value: UInt64(max(song.id, 0))),
             MPMediaItemPropertyPlaybackDuration: max(duration, 0),
@@ -64,6 +64,22 @@ final class NowPlayingSession {
         }
         nowPlayingCenter.nowPlayingInfo = nowPlayingInfo
         loadArtwork(from: song.album?.artworkURL, songID: song.id)
+    }
+
+    func updateCurrentLyric(_ lyric: String?, for song: Song) {
+        guard representedSongID == song.id else { return }
+
+        let lyric = lyric?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = lyric.flatMap { $0.isEmpty ? nil : $0 } ?? song.name
+        let artist = Self.trackDescription(for: song)
+        guard nowPlayingInfo[MPMediaItemPropertyTitle] as? String != title
+                || nowPlayingInfo[MPMediaItemPropertyArtist] as? String != artist else {
+            return
+        }
+
+        nowPlayingInfo[MPMediaItemPropertyTitle] = title
+        nowPlayingInfo[MPMediaItemPropertyArtist] = artist
+        nowPlayingCenter.nowPlayingInfo = nowPlayingInfo
     }
 
     func updatePlayback(
@@ -139,6 +155,12 @@ final class NowPlayingSession {
     ) {
         let target = command.addTarget(handler: handler)
         commandTargets.append((command, target))
+    }
+
+    private static func trackDescription(for song: Song) -> String {
+        [song.name, song.artistText]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
     }
 
     private func loadArtwork(from url: URL?, songID: Int) {

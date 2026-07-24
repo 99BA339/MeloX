@@ -74,6 +74,15 @@ final class PlayerStore {
     @ObservationIgnored
     private var currentLoadShouldAutoplay = false
 
+    @ObservationIgnored
+    private var nowPlayingLyricsSongID: Int?
+
+    @ObservationIgnored
+    private var nowPlayingLyrics: [LyricLine] = []
+
+    @ObservationIgnored
+    private var publishedNowPlayingLyricID: LyricLine.ID?
+
     init(
         api: NeteaseAPI,
         settings: AppSettings,
@@ -242,6 +251,13 @@ final class PlayerStore {
         persistSnapshot()
     }
 
+    func setNowPlayingLyrics(_ lyrics: [LyricLine], for songID: Int?) {
+        guard let songID, currentSong?.id == songID else { return }
+        nowPlayingLyricsSongID = songID
+        nowPlayingLyrics = lyrics
+        updateNowPlayingLyricMetadata()
+    }
+
     func estimatedProgress(at date: Date = Date()) -> TimeInterval {
         guard isPlaying else { return progress }
         let elapsed = max(date.timeIntervalSince(lastProgressUpdateDate), 0)
@@ -298,6 +314,11 @@ final class PlayerStore {
         isUsingDownloadedSource = false
         currentLoadShouldAutoplay = autoplay
         playbackIssue = nil
+        if nowPlayingLyricsSongID != song.id {
+            nowPlayingLyricsSongID = nil
+            nowPlayingLyrics = []
+            publishedNowPlayingLyricID = nil
+        }
         engine.unload()
         nowPlayingSession.setSong(
             song,
@@ -416,6 +437,7 @@ final class PlayerStore {
             guard let self else { return }
             self.progress = value
             self.lastProgressUpdateDate = Date()
+            self.updateNowPlayingLyricMetadata()
             let second = Int(value)
             if second != self.lastPersistedSecond {
                 self.lastPersistedSecond = second
@@ -478,11 +500,32 @@ final class PlayerStore {
     }
 
     private func updateNowPlayingState() {
+        updateNowPlayingLyricMetadata()
         nowPlayingSession.updatePlayback(
             position: progress,
             duration: duration,
             isPlaying: isPlaying
         )
+    }
+
+    private func updateNowPlayingLyricMetadata() {
+        guard let song = currentSong else { return }
+        let lyrics = nowPlayingLyricsSongID == song.id
+            ? nowPlayingLyrics
+            : []
+        let position = LyricPlaybackTimeline.position(
+            at: estimatedProgress() + settings.lyricsAdvanceTime,
+            in: lyrics
+        )
+        guard position.highlightedLyricID != publishedNowPlayingLyricID else {
+            return
+        }
+
+        let currentLyric = position.highlightedLyricID.flatMap { lyricID in
+            lyrics.first(where: { $0.id == lyricID })
+        }
+        publishedNowPlayingLyricID = position.highlightedLyricID
+        nowPlayingSession.updateCurrentLyric(currentLyric?.text, for: song)
     }
 
     private func recordCurrentPlayback(completed: Bool = false) {
