@@ -189,6 +189,7 @@ struct SkylineAmbientLyricsView: View {
 
 private struct SkylineAmbientLyricText: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(AppSettings.self) private var settings
 
     let item: SkylineAmbientLyricItem
     let size: CGSize
@@ -202,7 +203,12 @@ private struct SkylineAmbientLyricText: View {
 
     var body: some View {
         Text(verbatim: item.text)
-            .font(.system(size: baseFontSize, weight: .bold))
+            .font(
+                .system(
+                    size: baseFontSize,
+                    weight: settings.lyricsFontWeight.swiftUIWeight
+                )
+            )
             .foregroundStyle(
                 accentColor.opacity(item.visibleOpacity * opacityScale)
             )

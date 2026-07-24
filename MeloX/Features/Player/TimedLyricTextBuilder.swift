@@ -1,18 +1,21 @@
 import CoreText
 import SwiftUI
+import UIKit
 
 enum TimedLyricTextBuilder {
     static func text(
         from syllables: [LyricSyllable],
         constrainedWidth: CGFloat?,
-        fontSize: CGFloat
+        fontSize: CGFloat,
+        fontWeight: LyricsFontWeight = .bold
     ) -> Text {
         let characters = timedCharacters(from: syllables)
         let source = characters.map(\.text).joined()
         let lineBreakOffsets = lineBreakCharacterOffsets(
             in: source,
             constrainedWidth: constrainedWidth,
-            fontSize: fontSize
+            fontSize: fontSize,
+            fontWeight: fontWeight
         )
 
         return characters.enumerated().reduce(Text(verbatim: "")) {
@@ -74,7 +77,8 @@ enum TimedLyricTextBuilder {
     private static func lineBreakCharacterOffsets(
         in source: String,
         constrainedWidth: CGFloat?,
-        fontSize: CGFloat
+        fontSize: CGFloat,
+        fontWeight: LyricsFontWeight
     ) -> Set<Int> {
         guard !source.isEmpty,
               let constrainedWidth,
@@ -85,24 +89,20 @@ enum TimedLyricTextBuilder {
             return []
         }
 
-        guard let systemFont = CTFontCreateUIFontForLanguage(
-            .system,
+        let uiFont = UIFont.systemFont(
+            ofSize: fontSize,
+            weight: fontWeight.uiKitWeight
+        )
+        let layoutFont = CTFontCreateWithName(
+            uiFont.fontName as CFString,
             fontSize,
             nil
-        ) else {
-            return []
-        }
-        let boldFont = CTFontCreateCopyWithSymbolicTraits(
-            systemFont,
-            fontSize,
-            nil,
-            .boldTrait,
-            .boldTrait
-        ) ?? systemFont
+        )
         let attributedText = NSAttributedString(
             string: source,
             attributes: [
-                NSAttributedString.Key(kCTFontAttributeName as String): boldFont,
+                NSAttributedString.Key(kCTFontAttributeName as String):
+                    layoutFont,
             ]
         )
         let typesetter = CTTypesetterCreateWithAttributedString(

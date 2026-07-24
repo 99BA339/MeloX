@@ -18,6 +18,8 @@ struct LyricGlowTextRenderer: TextRenderer {
     struct Style: Equatable, Sendable {
         let glowRadius: CGFloat
         let glowOpacity: Double
+        let glowsLongSyllablesOnly: Bool
+        let longSyllableDurationThreshold: TimeInterval
         let unplayedOpacity: Double
         let maximumUnplayedBlurRadius: CGFloat
         let playedRise: CGFloat
@@ -133,7 +135,9 @@ struct LyricGlowTextRenderer: TextRenderer {
         for timing: LyricTimingTextAttribute
     ) -> RunVisualState {
         let rawProgress = playedProgress(for: timing)
-        let glowStrength = style.drawsGlow && rawProgress > 0
+        let glowStrength = style.drawsGlow
+            && (!style.glowsLongSyllablesOnly || isLongSyllable(timing))
+            && rawProgress > 0
             ? glowStrength(for: timing, rawProgress: rawProgress)
             : 0
 
@@ -168,7 +172,7 @@ struct LyricGlowTextRenderer: TextRenderer {
         let syllableDuration = timing.syllableEndTime
             - timing.syllableStartTime
         guard maximumScale > 1,
-              syllableDuration >= Metrics.longSyllableDurationThreshold,
+              isLongSyllable(timing),
               timing.characterCount > 0 else {
             return 1
         }
@@ -197,6 +201,13 @@ struct LyricGlowTextRenderer: TextRenderer {
         )
         let envelope = sin(.pi * smootherStep(rawProgress))
         return 1 + (maximumScale - 1) * CGFloat(envelope)
+    }
+
+    private func isLongSyllable(
+        _ timing: LyricTimingTextAttribute
+    ) -> Bool {
+        timing.syllableEndTime - timing.syllableStartTime
+            >= max(style.longSyllableDurationThreshold, 0)
     }
 
     private func drawUnplayed(
@@ -407,7 +418,6 @@ private extension LyricGlowTextRenderer {
         static let minimumGlowStrength = 0.82
         static let glowPulseAmount = 0.2
         static let liftContinuationDuration: TimeInterval = 0.32
-        static let longSyllableDurationThreshold: TimeInterval = 0.7
         static let expansionOverlapFraction = 0.32
         static let maximumExpansionOverlapDuration: TimeInterval = 0.14
         static let outerGlowRadiusMultiplier: CGFloat = 1.75

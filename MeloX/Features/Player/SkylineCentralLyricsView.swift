@@ -36,6 +36,7 @@ struct SkylineCentralLyricsView: View {
                     isPlaybackLine: true,
                     usesPseudoTiming: usesPseudoTiming,
                     fontSize: currentLyricFontSize,
+                    fontWeight: settings.lyricsFontWeight,
                     alignment: .center,
                     fontScale: fontScale,
                     primaryColor: currentLyricColor,
@@ -70,7 +71,7 @@ struct SkylineCentralLyricsView: View {
                     .font(
                         .system(
                             size: nextLyricFontSize,
-                            weight: .semibold
+                            weight: settings.lyricsFontWeight.swiftUIWeight
                         )
                     )
                     .foregroundStyle(.white.opacity(nextLyricOpacity))
@@ -97,7 +98,7 @@ struct SkylineCentralLyricsView: View {
                     .font(
                         .system(
                             size: currentLyricFontSize,
-                            weight: .bold
+                            weight: settings.lyricsFontWeight.swiftUIWeight
                         )
                     )
                     .foregroundStyle(accentColor)

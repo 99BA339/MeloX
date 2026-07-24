@@ -123,6 +123,15 @@ struct PlayerSettingsView: View {
                     valueText: "\(Int(settings.lyricsFontSize)) 磅"
                 )
 
+                Picker(
+                    "歌词字体粗细",
+                    selection: $settings.lyricsFontWeight
+                ) {
+                    ForEach(LyricsFontWeight.allCases) { weight in
+                        Text(weight.title).tag(weight)
+                    }
+                }
+
                 if settings.lyricsStyle == .appleMusic {
                     valueSlider(
                         title: "当前歌词大小",
@@ -186,7 +195,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("歌词外观")
             } footer: {
-                Text("\(settings.lyricsStyle.title)：\(settings.lyricsStyle.description)。播放器底部也可以快速切换；文字PV的具体风格与编排参数位于其子设置中。所有样式都会沿用字体与翻译设置，逐字动效仅用于 Apple Music 样式。逐句模糊加强只调整随焦点距离递增的模糊，100% 为原始强度；默认状态与隐藏 UI 后可以分别设置。")
+                Text("\(settings.lyricsStyle.title)：\(settings.lyricsStyle.description)。歌词字体粗细会同时应用于原文、翻译和全屏天际歌词；EVA 与文字PV保留各自模板字体。逐字动效仅用于 Apple Music 样式。逐句模糊加强只调整随焦点距离递增的模糊，100% 为原始强度；默认状态与隐藏 UI 后可以分别设置。")
             }
 
             Section {
@@ -203,7 +212,7 @@ struct PlayerSettingsView: View {
 
             Section {
                 valueSlider(
-                    title: "基础错峰间隔",
+                    title: "基础收束时差",
                     value: $settings.lyricsFocusCascadeDelay,
                     range: AppSettings.lyricsFocusCascadeDelayRange,
                     step: 0.001,
@@ -211,13 +220,12 @@ struct PlayerSettingsView: View {
                 )
 
                 valueSlider(
-                    title: "逐句延迟增量",
+                    title: "逐句时差增量",
                     value: $settings.lyricsFocusCascadeDelayIncrease,
                     range: AppSettings.lyricsFocusCascadeDelayIncreaseRange,
                     step: 0.001,
                     valueText: "\(Int((settings.lyricsFocusCascadeDelayIncrease * 1_000).rounded())) 毫秒/句"
                 )
-                .disabled(settings.lyricsFocusCascadeDelay == 0)
 
                 valueSlider(
                     title: "位移收束时长",
@@ -225,6 +233,14 @@ struct PlayerSettingsView: View {
                     range: AppSettings.lyricsFocusCascadeDurationRange,
                     step: 0.01,
                     valueText: "\(settings.lyricsFocusCascadeDuration.formatted(.number.precision(.fractionLength(2)))) 秒"
+                )
+
+                valueSlider(
+                    title: "瞬移阈值",
+                    value: $settings.lyricsFocusSnapThreshold,
+                    range: AppSettings.lyricsFocusSnapThresholdRange,
+                    step: 0.001,
+                    valueText: "\(Int((settings.lyricsFocusSnapThreshold * 1_000).rounded())) 毫秒"
                 )
 
                 Toggle(
@@ -242,6 +258,29 @@ struct PlayerSettingsView: View {
                     )
                 }
 
+                Toggle(
+                    "启用升格回弹",
+                    isOn: $settings.lyricsFocusScaleBounceEnabled
+                )
+
+                if settings.lyricsFocusScaleBounceEnabled {
+                    valueSlider(
+                        title: "升格回弹时长",
+                        value: $settings.lyricsFocusScaleBounceDuration,
+                        range: AppSettings.lyricsFocusScaleBounceDurationRange,
+                        step: 0.01,
+                        valueText: "\(settings.lyricsFocusScaleBounceDuration.formatted(.number.precision(.fractionLength(2)))) 秒"
+                    )
+
+                    valueSlider(
+                        title: "升格回弹弹性",
+                        value: $settings.lyricsFocusScaleBounce,
+                        range: AppSettings.lyricsFocusScaleBounceRange,
+                        step: 0.01,
+                        valueText: "\(Int((settings.lyricsFocusScaleBounce * 100).rounded()))%"
+                    )
+                }
+
                 valueSlider(
                     title: "焦点颜色提前",
                     value: $settings.lyricsFocusColorLeadTime,
@@ -252,13 +291,24 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("歌词动画")
             } footer: {
-                Text("默认使用 25 毫秒基础间隔、每句增加 5 毫秒、0.48 秒无回弹收束，焦点颜色与位移同时开始。逐句延迟增量设为 0 可保持固定间隔；基础错峰间隔设为 0 可恢复整体滚动。剩余播放时间不足时会自动压缩错峰和位移时长。")
+                Text("默认所有歌词同帧开始整体移动；基础收束时差默认 80 毫秒，逐句时差增量默认 32 毫秒，两者可在 20–100 毫秒之间调整。越靠后的行只会收束得更慢，不会延迟起步。位移基准时长为 0.68 秒并启用 42% 回弹；当前句升格放大另有独立的 0.58 秒、28% 回弹。瞬移阈值默认 260 毫秒，可在 50–500 毫秒之间调整；新一句提前到来时会从上一段动画的当前位置继续合并，只有剩余时间短于该阈值时才直接对齐。")
             }
 
             Section {
                 Toggle("显示歌词翻译", isOn: $settings.lyricsTranslationEnabled)
 
                 if settings.lyricsTranslationEnabled {
+                    if settings.lyricsStyle == .appleMusic {
+                        Picker(
+                            "翻译显示方式",
+                            selection: $settings.lyricsTranslationDisplayMode
+                        ) {
+                            ForEach(LyricsTranslationDisplayMode.allCases) { mode in
+                                Text(mode.title).tag(mode)
+                            }
+                        }
+                    }
+
                     valueSlider(
                         title: "翻译歌词大小",
                         value: $settings.lyricsTranslationFontScale,
@@ -281,7 +331,22 @@ struct PlayerSettingsView: View {
                 if settings.lyricsWordByWord || settings.lyricsPseudoWordByWord {
                     Toggle("逐字歌词光效", isOn: $settings.lyricsGlowEnabled)
 
+                    valueSlider(
+                        title: "长音判定阈值",
+                        value: $settings.lyricsLongSyllableDurationThreshold,
+                        range:
+                            AppSettings
+                                .lyricsLongSyllableDurationThresholdRange,
+                        step: 0.05,
+                        valueText: "\(settings.lyricsLongSyllableDurationThreshold.formatted(.number.precision(.fractionLength(2)))) 秒"
+                    )
+
                     if settings.lyricsGlowEnabled {
+                        Toggle(
+                            "仅长音显示辉光",
+                            isOn: $settings.lyricsGlowLongSyllablesOnly
+                        )
+
                         valueSlider(
                             title: "逐字光效强度",
                             value: $settings.lyricsGlowIntensity,
@@ -296,7 +361,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("歌词内容与光效")
             } footer: {
-                Text("中英翻译直接使用网易云提供的 ytlrc 或 tlyric。逐字歌词开关仅控制歌曲自带的 YRC 时间轴。")
+                Text("中英翻译直接使用网易云提供的 ytlrc 或 tlyric。Apple Music 样式默认只展开当前播放行的翻译，换句时旧翻译收起、新翻译淡入并参与整页位移；也可以改为全部显示。逐字歌词开关仅控制歌曲自带的 YRC 时间轴。长音判定阈值默认 0.70 秒，并同时控制膨胀和“仅长音显示辉光”的触发；关闭该选项后，普通音节也会显示辉光，但膨胀仍只用于长音。")
             }
 
             Section {
