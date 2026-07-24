@@ -22,8 +22,10 @@ enum TimedLyricTextBuilder {
             result,
             entry in
             var text = result
-            if lineBreakOffsets.contains(entry.offset),
-               characters[entry.offset - 1].text != "\n" {
+            let offset = entry.offset
+            if lineBreakOffsets.contains(offset),
+               offset > 0,
+               !characters[offset - 1].isLineBreak {
                 text = Text("\(text)\(Text(verbatim: "\n"))")
             }
 
@@ -98,25 +100,33 @@ enum TimedLyricTextBuilder {
             fontSize,
             nil
         )
-        let attributedText = NSAttributedString(
+        let attributedText = NSMutableAttributedString(
             string: source,
             attributes: [
                 NSAttributedString.Key(kCTFontAttributeName as String):
                     layoutFont,
+                NSAttributedString.Key(kCTLigatureAttributeName as String):
+                    0,
             ]
         )
+        addTimedRunBoundaries(to: attributedText, source: source)
         let typesetter = CTTypesetterCreateWithAttributedString(
             attributedText
         )
         let utf16Length = attributedText.length
         var utf16Offset = 0
         var result: Set<Int> = []
+        let layoutWidth = effectiveLayoutWidth(
+            source: source,
+            constrainedWidth: constrainedWidth,
+            fontSize: fontSize
+        )
 
         while utf16Offset < utf16Length {
             let suggestedLength = CTTypesetterSuggestLineBreak(
                 typesetter,
                 utf16Offset,
-                Double(constrainedWidth)
+                Double(layoutWidth)
             )
             let consumedLength = max(
                 suggestedLength,
@@ -142,6 +152,52 @@ enum TimedLyricTextBuilder {
             }
         }
         return result
+    }
+
+    private static func effectiveLayoutWidth(
+        source: String,
+        constrainedWidth: CGFloat,
+        fontSize: CGFloat
+    ) -> CGFloat {
+        let containsLatinText = source.unicodeScalars.contains { scalar in
+            (65...90).contains(scalar.value)
+                || (97...122).contains(scalar.value)
+        }
+        let containsWordSpacing = source.contains { $0.isWhitespace }
+        let safetyMargin: CGFloat
+        if containsLatinText, containsWordSpacing {
+            // SwiftUI's individually attributed Latin glyph runs measure
+            // wider than Core Text's typesetter near word boundaries.
+            safetyMargin = max(
+                constrainedWidth * 0.05,
+                fontSize * 0.5
+            )
+        } else {
+            safetyMargin = max(fontSize * 0.02, 0.5)
+        }
+        return max(constrainedWidth - safetyMargin, 1)
+    }
+
+    private static func addTimedRunBoundaries(
+        to attributedText: NSMutableAttributedString,
+        source: String
+    ) {
+        let runBoundaryAttribute = NSAttributedString.Key(
+            "MeloXTimedLyricRunBoundary"
+        )
+        var utf16Offset = 0
+        for (characterOffset, character) in source.enumerated() {
+            let utf16Length = String(character).utf16.count
+            attributedText.addAttribute(
+                runBoundaryAttribute,
+                value: characterOffset,
+                range: NSRange(
+                    location: utf16Offset,
+                    length: utf16Length
+                )
+            )
+            utf16Offset += utf16Length
+        }
     }
 
     private static func nextCharacterLength(
@@ -181,5 +237,9 @@ private extension TimedLyricTextBuilder {
         let syllableEndTime: TimeInterval
         let characterIndex: Int
         let characterCount: Int
+
+        var isLineBreak: Bool {
+            text == "\n" || text == "\r" || text == "\r\n"
+        }
     }
 }

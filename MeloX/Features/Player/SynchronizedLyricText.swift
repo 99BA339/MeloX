@@ -91,7 +91,7 @@ struct SynchronizedLyricText: View {
         let pseudoSyllables = usesPseudoTiming
             ? line.makePseudoSyllables()
             : []
-        let activeSyllables = usesPseudoTiming
+        let activeSyllables = line.syllables.isEmpty
             ? pseudoSyllables
             : line.syllables
         let timedLayoutWidth = layoutWidth.map {
@@ -179,12 +179,15 @@ struct SynchronizedLyricText: View {
     }
 
     private var stablePrimaryLyric: some View {
-        layoutStablePrimaryText
+        stablePrimaryContent
             .font(primaryFont)
             .foregroundStyle(primaryColor)
             .multilineTextAlignment(alignment.textAlignment)
             .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
+            .fixedSize(
+                horizontal: supportsTimedLyrics,
+                vertical: true
+            )
             .frame(
                 width: primaryLayoutWidth,
                 alignment: alignment.frameAlignment
@@ -210,28 +213,8 @@ struct SynchronizedLyricText: View {
                 .foregroundStyle(primaryColor)
                 .multilineTextAlignment(alignment.textAlignment)
                 .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
                 .textRenderer(
-                    LyricGlowTextRenderer(
-                        playbackTime: playbackTime,
-                        style: .init(
-                            glowRadius: glowRadius,
-                            glowOpacity: glowOpacity,
-                            glowsLongSyllablesOnly:
-                                settings.lyricsGlowLongSyllablesOnly,
-                            longSyllableDurationThreshold:
-                                settings.lyricsLongSyllableDurationThreshold,
-                            unplayedOpacity: 0.3,
-                            maximumUnplayedBlurRadius: maximumUnplayedBlurRadius,
-                            playedRise: playedRise,
-                            maximumLongSyllableScale: maximumLongSyllableScale,
-                            longSyllableExpansionPadding: longSyllableExpansionPadding
-                        ),
-                        layoutConfiguration: .init(
-                            width: timedLayoutWidth,
-                            centersLines: alignment == .center
-                        )
-                    )
+                    lyricTextRenderer(at: playbackTime)
                 )
                 .frame(
                     width: timedLayoutWidth,
@@ -248,6 +231,37 @@ struct SynchronizedLyricText: View {
         }
     }
 
+    private var stablePrimaryContent: Text {
+        supportsTimedLyrics
+            ? activeSynchronizedText
+            : Text(verbatim: line.text)
+    }
+
+    private func lyricTextRenderer(
+        at playbackTime: TimeInterval
+    ) -> LyricGlowTextRenderer {
+        LyricGlowTextRenderer(
+            playbackTime: playbackTime,
+            style: .init(
+                glowRadius: glowRadius,
+                glowOpacity: glowOpacity,
+                glowsLongSyllablesOnly:
+                    settings.lyricsGlowLongSyllablesOnly,
+                longSyllableDurationThreshold:
+                    settings.lyricsLongSyllableDurationThreshold,
+                unplayedOpacity: 0.3,
+                maximumUnplayedBlurRadius: maximumUnplayedBlurRadius,
+                playedRise: playedRise,
+                maximumLongSyllableScale: maximumLongSyllableScale,
+                longSyllableExpansionPadding: longSyllableExpansionPadding
+            ),
+            layoutConfiguration: .init(
+                width: timedLayoutWidth,
+                centersLines: alignment == .center
+            )
+        )
+    }
+
     private var primaryLayoutWidth: CGFloat? {
         supportsTimedLyrics ? timedLayoutWidth : layoutWidth
     }
@@ -261,21 +275,10 @@ struct SynchronizedLyricText: View {
         isPlaybackLine && supportsTimedLyrics
     }
 
-    // Keeping the plain text as the layout source prevents the timed renderer
-    // from remeasuring multi-line lyrics when playback focus changes.
-
     private var activeSynchronizedText: Text {
-        usesPseudoTiming ? pseudoSynchronizedText : synchronizedText
-    }
-
-    private var layoutStablePrimaryText: Text {
-        if settings.lyricsWordByWord, line.isSyllableSynced {
-            return synchronizedText
-        }
-        if usesPseudoTiming, hasPseudoSyllables {
-            return pseudoSynchronizedText
-        }
-        return Text(verbatim: line.text)
+        line.isSyllableSynced
+            ? synchronizedText
+            : pseudoSynchronizedText
     }
 
     private var primaryFont: Font {

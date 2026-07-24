@@ -63,24 +63,14 @@ struct LyricGlowTextRenderer: TextRenderer {
         )
     }
 
-    func sizeThatFits(
-        proposal: ProposedViewSize,
-        text: TextProxy
-    ) -> CGSize {
-        guard let width = layoutConfiguration.constrainedWidth else {
-            return text.sizeThatFits(proposal)
-        }
-
-        let measuredSize = text.sizeThatFits(
-            ProposedViewSize(width: width, height: proposal.height)
-        )
-        return CGSize(width: width, height: measuredSize.height)
-    }
-
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
             var lineContext = context
-            lineContext.translateBy(x: horizontalOffset(for: line), y: 0)
+            if let transform = lineDrawingTransform(for: line) {
+                lineContext.addFilter(
+                    .projectionTransform(ProjectionTransform(transform))
+                )
+            }
 
             for run in line {
                 draw(run, in: &lineContext)
@@ -88,18 +78,47 @@ struct LyricGlowTextRenderer: TextRenderer {
         }
     }
 
-    private func horizontalOffset(for line: Text.Layout.Line) -> CGFloat {
-        guard layoutConfiguration.centersLines,
-              let width = layoutConfiguration.constrainedWidth else {
-            return 0
+    private func lineDrawingTransform(
+        for line: Text.Layout.Line
+    ) -> CGAffineTransform? {
+        guard let width = layoutConfiguration.constrainedWidth else {
+            return nil
         }
 
         let lineBounds = line.typographicBounds.rect
         guard lineBounds.width.isFinite,
-              lineBounds.midX.isFinite else {
-            return 0
+              lineBounds.width > 0,
+              lineBounds.minX.isFinite else {
+            return nil
         }
-        return width * 0.5 - lineBounds.midX
+
+        let trailingSafety = max(
+            style.longSyllableExpansionPadding,
+            Metrics.minimumTrailingSafety
+        )
+        let availableWidth = max(width - trailingSafety, 1)
+        let horizontalScale = min(
+            max(availableWidth / lineBounds.width, 0),
+            1
+        )
+        let scaledWidth = lineBounds.width * horizontalScale
+        let targetMinX = layoutConfiguration.centersLines
+            ? (width - scaledWidth) * 0.5
+            : 0
+        let translationX = targetMinX
+            - lineBounds.minX * horizontalScale
+
+        guard horizontalScale < 1 || abs(translationX) > 0.001 else {
+            return nil
+        }
+        return CGAffineTransform(
+            a: horizontalScale,
+            b: 0,
+            c: 0,
+            d: 1,
+            tx: translationX,
+            ty: 0
+        )
     }
 
     private func draw(
@@ -412,6 +431,7 @@ private extension LyricGlowTextRenderer {
 
     enum Metrics {
         static let displayPaddingMultiplier: CGFloat = 6
+        static let minimumTrailingSafety: CGFloat = 1
         static let unplayedBlurLeadDuration: TimeInterval = 2.4
         static let minimumUnplayedBlurFraction = 0.12
         static let glowAttackProgress = 0.24
