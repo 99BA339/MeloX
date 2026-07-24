@@ -19,7 +19,7 @@ final class FloatingLyricsFrameRenderer {
 
     func makeSampleBuffer(
         presentation: FloatingLyricsPresentation,
-        artworkImage: UIImage?,
+        artworkImage: CGImage?,
         presentationTime: CMTime
     ) -> CMSampleBuffer? {
         let content = FloatingLyricsContentView(

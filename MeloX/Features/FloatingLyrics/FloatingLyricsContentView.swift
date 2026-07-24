@@ -1,5 +1,5 @@
+import CoreGraphics
 import SwiftUI
-import UIKit
 
 struct FloatingLyricsPresentation: Equatable {
     let songID: Int?
@@ -17,25 +17,21 @@ struct FloatingLyricsPresentation: Equatable {
 
 struct FloatingLyricsContentView: View {
     let presentation: FloatingLyricsPresentation
-    let artworkImage: UIImage?
+    let artworkImage: CGImage?
 
     var body: some View {
         ZStack {
             ambientBackground
 
-            HStack(spacing: 24) {
+            HStack(spacing: 32) {
                 artworkPanel
-                    .frame(width: 190)
-
-                Rectangle()
-                    .fill(.white.opacity(0.12))
-                    .frame(width: 1)
+                    .frame(width: 224)
 
                 lyricsPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 26)
-            .padding(.vertical, 24)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 20)
         }
         .foregroundStyle(.white)
         .clipped()
@@ -44,13 +40,13 @@ struct FloatingLyricsContentView: View {
     @ViewBuilder
     private var ambientBackground: some View {
         if let artworkImage {
-            Image(uiImage: artworkImage)
+            artworkImageView(artworkImage)
                 .resizable()
                 .scaledToFill()
                 .scaleEffect(1.18)
-                .blur(radius: 54)
-                .saturation(1.15)
-                .opacity(0.32)
+                .blur(radius: 58)
+                .saturation(1.18)
+                .opacity(0.42)
         } else {
             LinearGradient(
                 colors: [
@@ -62,42 +58,40 @@ struct FloatingLyricsContentView: View {
             )
         }
 
-        Color.black.opacity(artworkImage == nil ? 0.36 : 0.66)
+        Color.black.opacity(artworkImage == nil ? 0.28 : 0.62)
 
         LinearGradient(
             colors: [
-                .clear,
-                .black.opacity(0.45),
+                .black.opacity(0.06),
+                .black.opacity(0.52),
             ],
-            startPoint: .top,
-            endPoint: .bottom
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 
     private var artworkPanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             albumArtwork
 
-            Spacer(minLength: 12)
-
             Text(presentation.title)
-                .font(.system(size: 21, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.68)
 
             Text(presentation.artist)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.62))
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.68)
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(maxHeight: .infinity, alignment: .center)
     }
 
     private var albumArtwork: some View {
         ZStack {
             if let artworkImage {
-                Image(uiImage: artworkImage)
+                artworkImageView(artworkImage)
                     .resizable()
                     .scaledToFill()
             } else {
@@ -110,25 +104,25 @@ struct FloatingLyricsContentView: View {
                     endPoint: .bottomTrailing
                 )
 
-                Image(systemName: "music.note")
-                    .font(.system(size: 42, weight: .semibold))
+                Text("♪")
+                    .font(.system(size: 52, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.52))
             }
         }
-        .frame(width: 176, height: 176)
-        .clipShape(.rect(cornerRadius: 18))
+        .frame(width: 214, height: 214)
+        .clipShape(.rect(cornerRadius: 16))
         .overlay {
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.38), radius: 18, y: 9)
+        .shadow(color: .black.opacity(0.46), radius: 20, y: 10)
     }
 
     private var lyricsPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             currentLyric
 
-            VStack(alignment: .leading, spacing: 11) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(
                     Array(presentation.upcomingLines.prefix(2).enumerated()),
                     id: \.element.id
@@ -136,17 +130,17 @@ struct FloatingLyricsContentView: View {
                     Text(verbatim: line.text)
                         .font(
                             .system(
-                                size: (index == 0 ? 22 : 19)
+                                size: (index == 0 ? 25 : 22)
                                     * presentation.fontScale,
                                 weight: .bold
                             )
                         )
                         .foregroundStyle(
-                            .white.opacity(index == 0 ? 0.34 : 0.18)
+                            .white.opacity(index == 0 ? 0.30 : 0.14)
                         )
-                        .blur(radius: index == 0 ? 0.35 : 0.8)
+                        .blur(radius: index == 0 ? 0.45 : 1)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                        .minimumScaleFactor(0.66)
                 }
             }
         }
@@ -171,11 +165,11 @@ struct FloatingLyricsContentView: View {
                 line: line,
                 isPlaybackLine: true,
                 usesPseudoTiming: presentation.usesPseudoTiming,
-                fontSize: 38 * presentation.fontScale,
+                fontSize: 46 * presentation.fontScale,
                 fontScale: presentation.fontScale,
                 primaryColor: .white,
                 showsTranslation: presentation.showsTranslation,
-                layoutWidth: 630,
+                layoutWidth: 648,
                 playbackScaleRange: 1...1.035,
                 playbackScaleStartDelay: 0.08
             )
@@ -189,7 +183,7 @@ struct FloatingLyricsContentView: View {
             Text(presentation.fallbackText)
                 .font(
                     .system(
-                        size: 38 * presentation.fontScale,
+                        size: 46 * presentation.fontScale,
                         weight: .bold,
                         design: .rounded
                     )
@@ -210,6 +204,14 @@ struct FloatingLyricsContentView: View {
             * rawProgress
             * (3 - 2 * rawProgress)
         return CGFloat(easedProgress)
+    }
+
+    private func artworkImageView(_ image: CGImage) -> Image {
+        Image(
+            decorative: image,
+            scale: 1,
+            orientation: .up
+        )
     }
 }
 
@@ -237,7 +239,7 @@ struct FloatingLyricsContentView: View {
             showsTranslation: true,
             fontScale: 1
         ),
-        artworkImage: UIImage(named: "MeloXLogo")
+        artworkImage: nil
     )
     .frame(width: 480, height: 160)
 }
