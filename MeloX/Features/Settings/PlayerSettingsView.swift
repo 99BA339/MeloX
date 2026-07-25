@@ -212,7 +212,7 @@ struct PlayerSettingsView: View {
 
             Section {
                 valueSlider(
-                    title: "基础收束时差",
+                    title: "基础拖尾延迟",
                     value: $settings.lyricsFocusCascadeDelay,
                     range: AppSettings.lyricsFocusCascadeDelayRange,
                     step: 0.001,
@@ -220,11 +220,19 @@ struct PlayerSettingsView: View {
                 )
 
                 valueSlider(
-                    title: "逐句时差增量",
+                    title: "逐句拖尾增量",
                     value: $settings.lyricsFocusCascadeDelayIncrease,
                     range: AppSettings.lyricsFocusCascadeDelayIncreaseRange,
                     step: 0.001,
                     valueText: "\(Int((settings.lyricsFocusCascadeDelayIncrease * 1_000).rounded())) 毫秒/句"
+                )
+
+                valueSlider(
+                    title: "拖尾追赶节奏",
+                    value: $settings.lyricsFocusCascadeCatchUpRatio,
+                    range: AppSettings.lyricsFocusCascadeCatchUpRatioRange,
+                    step: 0.01,
+                    valueText: "\(Int((settings.lyricsFocusCascadeCatchUpRatio * 100).rounded()))%"
                 )
 
                 valueSlider(
@@ -291,7 +299,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("歌词动画")
             } footer: {
-                Text("默认所有歌词同帧开始整体移动；基础收束时差默认 80 毫秒，逐句时差增量默认 32 毫秒，两者可在 20–100 毫秒之间调整。越靠后的行只会收束得更慢，不会延迟起步。位移基准时长为 0.68 秒并启用 42% 回弹；当前句升格放大另有独立的 0.58 秒、28% 回弹。瞬移阈值默认 260 毫秒，可在 50–500 毫秒之间调整；新一句提前到来时会从上一段动画的当前位置继续合并，只有剩余时间短于该阈值时才直接对齐。")
+                Text("当前歌词先移动，后续歌词的实际延迟由“基础拖尾延迟”和“逐句拖尾增量”完整累计，不设内部最大延迟；两项均可调至 0 毫秒。“拖尾追赶节奏”默认 96%，数值越低追赶越快。位移基准时长为 0.68 秒，默认关闭位移回弹；当前句升格放大另有独立的 0.58 秒、28% 回弹。瞬移阈值默认 260 毫秒，可在 50–500 毫秒之间调整；剩余时间短于该阈值时会直接对齐。")
             }
 
             Section {

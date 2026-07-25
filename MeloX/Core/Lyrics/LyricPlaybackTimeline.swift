@@ -5,24 +5,32 @@ struct LyricPlaybackPosition: Equatable {
     let nextTransitionTime: TimeInterval?
 }
 
+struct LyricFocusCascadeLineTiming: Equatable {
+    let delay: TimeInterval
+    let duration: TimeInterval
+}
+
 struct LyricFocusCascadeTiming: Equatable {
-    let durationOffsetsByLineOrder: [TimeInterval]
-    let animationDuration: TimeInterval
+    let lineTimingsByLineOrder: [LyricFocusCascadeLineTiming]
     let usesBounce: Bool
 
-    func durationOffset(for lineOrder: Int) -> TimeInterval {
-        guard !durationOffsetsByLineOrder.isEmpty else { return 0 }
+    func lineTiming(for lineOrder: Int) -> LyricFocusCascadeLineTiming {
+        guard !lineTimingsByLineOrder.isEmpty else {
+            return LyricFocusCascadeLineTiming(delay: 0, duration: 0)
+        }
         let index = min(
-            max(lineOrder, durationOffsetsByLineOrder.startIndex),
-            durationOffsetsByLineOrder.index(
-                before: durationOffsetsByLineOrder.endIndex
+            max(lineOrder, lineTimingsByLineOrder.startIndex),
+            lineTimingsByLineOrder.index(
+                before: lineTimingsByLineOrder.endIndex
             )
         )
-        return durationOffsetsByLineOrder[index]
+        return lineTimingsByLineOrder[index]
     }
 }
 
 enum LyricPlaybackTimeline {
+    private static let maximumFocusCascadeMinimumCatchUpDuration = 0.18
+
     static func position(
         at playbackTime: TimeInterval,
         in lyrics: [LyricLine]
@@ -84,8 +92,9 @@ enum LyricPlaybackTimeline {
 
     static func focusCascadeTiming(
         maximumLineOrder: Int,
-        preferredDurationOffsetPerLine: TimeInterval,
-        preferredDurationOffsetIncreasePerLine: TimeInterval,
+        preferredDelayPerLine: TimeInterval,
+        preferredDelayIncreasePerLine: TimeInterval,
+        preferredCatchUpCompletionRatio: Double,
         focusColorLeadTime: TimeInterval,
         baseAnimationDuration: TimeInterval,
         preferredAnimationDuration: TimeInterval,
@@ -94,37 +103,33 @@ enum LyricPlaybackTimeline {
         remainingDuration: TimeInterval?
     ) -> LyricFocusCascadeTiming? {
         guard maximumLineOrder >= 0,
-              preferredDurationOffsetPerLine.isFinite,
-              preferredDurationOffsetPerLine > 0,
-              preferredDurationOffsetIncreasePerLine.isFinite,
-              preferredDurationOffsetIncreasePerLine >= 0,
+              preferredDelayPerLine.isFinite,
+              preferredDelayPerLine >= 0,
+              preferredDelayIncreasePerLine.isFinite,
+              preferredDelayIncreasePerLine >= 0,
+              preferredCatchUpCompletionRatio.isFinite,
               baseAnimationDuration.isFinite,
               baseAnimationDuration > 0 else {
             return nil
         }
-        let durationOffsetPerLine = max(
-            preferredDurationOffsetPerLine,
-            0
+        let delayPerLine = max(preferredDelayPerLine, 0)
+        let delayIncreasePerLine = max(preferredDelayIncreasePerLine, 0)
+        let catchUpCompletionRatio = min(
+            max(preferredCatchUpCompletionRatio, 0),
+            1
         )
-        let durationOffsetIncreasePerLine = max(
-            preferredDurationOffsetIncreasePerLine,
-            0
-        )
-        let preferredDurationOffsets = (0...maximumLineOrder).map {
-            accumulatedFocusCascadeDurationOffset(
-                lineOrder: $0,
-                durationOffsetPerLine: durationOffsetPerLine,
-                durationOffsetIncreasePerLine:
-                    durationOffsetIncreasePerLine
-            )
-        }
         let fullAnimationDuration = max(
             preferredAnimationDuration,
             baseAnimationDuration
         )
         let fullTiming = LyricFocusCascadeTiming(
-            durationOffsetsByLineOrder: preferredDurationOffsets,
-            animationDuration: fullAnimationDuration,
+            lineTimingsByLineOrder: focusCascadeLineTimings(
+                maximumLineOrder: maximumLineOrder,
+                delayPerLine: delayPerLine,
+                delayIncreasePerLine: delayIncreasePerLine,
+                catchUpCompletionRatio: catchUpCompletionRatio,
+                animationDuration: fullAnimationDuration
+            ),
             usesBounce: prefersBounce
         )
         guard let remainingDuration, remainingDuration.isFinite else {
@@ -139,18 +144,70 @@ enum LyricPlaybackTimeline {
         guard availableDuration >= effectiveSnapThreshold else {
             return nil
         }
-        return fullTiming
+        // Finish this cascade before the next lyric takes focus so a dense
+        // timeline cannot leave the lower rows perpetually catching up.
+        let availableAnimationDuration = min(
+            fullAnimationDuration,
+            availableDuration
+        )
+        return LyricFocusCascadeTiming(
+            lineTimingsByLineOrder: focusCascadeLineTimings(
+                maximumLineOrder: maximumLineOrder,
+                delayPerLine: delayPerLine,
+                delayIncreasePerLine: delayIncreasePerLine,
+                catchUpCompletionRatio: catchUpCompletionRatio,
+                animationDuration: availableAnimationDuration
+            ),
+            usesBounce:
+                prefersBounce
+                    && availableAnimationDuration >= fullAnimationDuration
+        )
     }
 
-    private static func accumulatedFocusCascadeDurationOffset(
+    private static func focusCascadeLineTimings(
+        maximumLineOrder: Int,
+        delayPerLine: TimeInterval,
+        delayIncreasePerLine: TimeInterval,
+        catchUpCompletionRatio: Double,
+        animationDuration: TimeInterval
+    ) -> [LyricFocusCascadeLineTiming] {
+        let catchUpCompletionTime =
+            animationDuration * catchUpCompletionRatio
+        let minimumCatchUpDuration = min(
+            maximumFocusCascadeMinimumCatchUpDuration,
+            animationDuration * 0.5
+        )
+        return (0...maximumLineOrder).map { lineOrder in
+            guard lineOrder > 0 else {
+                return LyricFocusCascadeLineTiming(
+                    delay: 0,
+                    duration: animationDuration
+                )
+            }
+            let delay = accumulatedFocusCascadeDelay(
+                lineOrder: lineOrder,
+                delayPerLine: delayPerLine,
+                delayIncreasePerLine: delayIncreasePerLine
+            )
+            return LyricFocusCascadeLineTiming(
+                delay: delay,
+                duration: max(
+                    catchUpCompletionTime - delay,
+                    minimumCatchUpDuration
+                )
+            )
+        }
+    }
+
+    private static func accumulatedFocusCascadeDelay(
         lineOrder: Int,
-        durationOffsetPerLine: TimeInterval,
-        durationOffsetIncreasePerLine: TimeInterval
+        delayPerLine: TimeInterval,
+        delayIncreasePerLine: TimeInterval
     ) -> TimeInterval {
         let order = Double(max(lineOrder, 0))
         let accumulatedIncrease = order * max(order - 1, 0) / 2
-        return order * durationOffsetPerLine
-            + accumulatedIncrease * durationOffsetIncreasePerLine
+        return order * delayPerLine
+            + accumulatedIncrease * delayIncreasePerLine
     }
 
     static func remainingFocusDuration(

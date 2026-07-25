@@ -46,10 +46,12 @@ final class AppSettings {
     static let defaultLyricsDistanceBlurScale = 0.65
     static let defaultLyricsHiddenInterfaceBlurScale = 0.6
     static let lyricsDistanceBlurScaleRange = 0.0...1.5
-    static let defaultLyricsFocusCascadeDelay = 0.07
-    static let lyricsFocusCascadeDelayRange = 0.02...0.1
-    static let defaultLyricsFocusCascadeDelayIncrease = 0.03
-    static let lyricsFocusCascadeDelayIncreaseRange = 0.02...0.1
+    static let defaultLyricsFocusCascadeDelay = 0.025
+    static let lyricsFocusCascadeDelayRange = 0.0...0.1
+    static let defaultLyricsFocusCascadeDelayIncrease = 0.015
+    static let lyricsFocusCascadeDelayIncreaseRange = 0.0...0.1
+    static let defaultLyricsFocusCascadeCatchUpRatio = 0.96
+    static let lyricsFocusCascadeCatchUpRatioRange = 0.5...1.0
     static let defaultLyricsFocusCascadeDuration = 0.68
     static let lyricsFocusCascadeDurationRange = 0.2...1.2
     static let defaultLyricsFocusSnapThreshold = 0.26
@@ -113,6 +115,8 @@ final class AppSettings {
         static let lyricsFocusCascadeDelay = "lyricsFocusCascadeDelay"
         static let lyricsFocusCascadeDelayIncrease =
             "lyricsFocusCascadeDelayIncrease"
+        static let lyricsFocusCascadeCatchUpRatio =
+            "lyricsFocusCascadeCatchUpRatio"
         static let lyricsFocusCascadeDuration = "lyricsFocusCascadeDuration"
         static let lyricsFocusSnapThreshold = "lyricsFocusSnapThreshold"
         static let lyricsFocusCascadeBounceEnabled = "lyricsFocusCascadeBounceEnabled"
@@ -372,6 +376,15 @@ final class AppSettings {
             defaults.set(
                 lyricsFocusCascadeDelayIncrease,
                 forKey: Key.lyricsFocusCascadeDelayIncrease
+            )
+        }
+    }
+
+    var lyricsFocusCascadeCatchUpRatio: Double {
+        didSet {
+            defaults.set(
+                lyricsFocusCascadeCatchUpRatio,
+                forKey: Key.lyricsFocusCascadeCatchUpRatio
             )
         }
     }
@@ -668,6 +681,16 @@ final class AppSettings {
             ),
             Self.lyricsFocusCascadeDelayIncreaseRange.upperBound
         )
+        let storedFocusCascadeCatchUpRatio = defaults.object(
+            forKey: Key.lyricsFocusCascadeCatchUpRatio
+        ) as? Double ?? Self.defaultLyricsFocusCascadeCatchUpRatio
+        lyricsFocusCascadeCatchUpRatio = min(
+            max(
+                storedFocusCascadeCatchUpRatio,
+                Self.lyricsFocusCascadeCatchUpRatioRange.lowerBound
+            ),
+            Self.lyricsFocusCascadeCatchUpRatioRange.upperBound
+        )
         lyricsFocusCascadeBounceEnabled = defaults.object(
             forKey: Key.lyricsFocusCascadeBounceEnabled
         ) as? Bool ?? Self.defaultLyricsFocusCascadeBounceEnabled
@@ -817,6 +840,8 @@ final class AppSettings {
         lyricsFocusCascadeDelay = Self.defaultLyricsFocusCascadeDelay
         lyricsFocusCascadeDelayIncrease =
             Self.defaultLyricsFocusCascadeDelayIncrease
+        lyricsFocusCascadeCatchUpRatio =
+            Self.defaultLyricsFocusCascadeCatchUpRatio
         lyricsFocusCascadeBounceEnabled = Self.defaultLyricsFocusCascadeBounceEnabled
         lyricsFocusCascadeBounce = Self.defaultLyricsFocusCascadeBounce
         lyricsFocusScaleBounceEnabled = Self.defaultLyricsFocusScaleBounceEnabled

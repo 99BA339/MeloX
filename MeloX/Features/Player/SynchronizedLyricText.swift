@@ -20,8 +20,8 @@ enum SynchronizedLyricTextAlignment: Equatable {
 
     var scaleAnchor: UnitPoint {
         switch self {
-        case .leading: .leading
-        case .center: .center
+        case .leading: .topLeading
+        case .center: .top
         }
     }
 }
@@ -41,6 +41,8 @@ struct SynchronizedLyricText: View {
     let fontScale: CGFloat
     let primaryColor: Color
     let showsTranslation: Bool
+    let reservesTranslationSpace: Bool
+    let onTranslationHeightChange: ((CGFloat) -> Void)?
     let translationLayoutAnimation: Animation?
     let translationVisibilityAnimation: Animation?
     let visualScale: CGFloat
@@ -63,6 +65,8 @@ struct SynchronizedLyricText: View {
         fontScale: CGFloat = 1,
         primaryColor: Color = .white,
         showsTranslation: Bool = true,
+        reservesTranslationSpace: Bool = true,
+        onTranslationHeightChange: ((CGFloat) -> Void)? = nil,
         translationLayoutAnimation: Animation? = nil,
         translationVisibilityAnimation: Animation? = nil,
         visualScale: CGFloat = 1,
@@ -80,6 +84,8 @@ struct SynchronizedLyricText: View {
         self.fontScale = fontScale
         self.primaryColor = primaryColor
         self.showsTranslation = showsTranslation
+        self.reservesTranslationSpace = reservesTranslationSpace
+        self.onTranslationHeightChange = onTranslationHeightChange
         self.translationLayoutAnimation = translationLayoutAnimation
         self.translationVisibilityAnimation = translationVisibilityAnimation
         self.visualScale = visualScale
@@ -121,7 +127,10 @@ struct SynchronizedLyricText: View {
 
     var body: some View {
         LyricTranslationLayout(
-            expansion: displaysTranslation ? 1 : 0,
+            expansion:
+                reservesTranslationSpace && displaysTranslation
+                    ? 1
+                    : 0,
             spacing: 2
         ) {
             primaryLyric
@@ -145,6 +154,11 @@ struct SynchronizedLyricText: View {
                         maxWidth: .infinity,
                         alignment: alignment.frameAlignment
                     )
+                    .onGeometryChange(for: CGFloat.self) { geometry in
+                        geometry.size.height
+                    } action: { height in
+                        onTranslationHeightChange?(height)
+                    }
                     .opacity(displaysTranslation ? 1 : 0)
                     .animation(
                         accessibilityReduceMotion
