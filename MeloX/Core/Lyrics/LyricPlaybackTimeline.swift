@@ -94,6 +94,7 @@ enum LyricPlaybackTimeline {
         maximumLineOrder: Int,
         preferredDelayPerLine: TimeInterval,
         preferredDelayIncreasePerLine: TimeInterval,
+        followingLineBaseDelay: TimeInterval,
         preferredCatchUpCompletionRatio: Double,
         focusColorLeadTime: TimeInterval,
         baseAnimationDuration: TimeInterval,
@@ -107,6 +108,8 @@ enum LyricPlaybackTimeline {
               preferredDelayPerLine >= 0,
               preferredDelayIncreasePerLine.isFinite,
               preferredDelayIncreasePerLine >= 0,
+              followingLineBaseDelay.isFinite,
+              followingLineBaseDelay >= 0,
               preferredCatchUpCompletionRatio.isFinite,
               baseAnimationDuration.isFinite,
               baseAnimationDuration > 0 else {
@@ -114,6 +117,7 @@ enum LyricPlaybackTimeline {
         }
         let delayPerLine = max(preferredDelayPerLine, 0)
         let delayIncreasePerLine = max(preferredDelayIncreasePerLine, 0)
+        let baseDelayForFollowingLines = max(followingLineBaseDelay, 0)
         let catchUpCompletionRatio = min(
             max(preferredCatchUpCompletionRatio, 0),
             1
@@ -127,6 +131,7 @@ enum LyricPlaybackTimeline {
                 maximumLineOrder: maximumLineOrder,
                 delayPerLine: delayPerLine,
                 delayIncreasePerLine: delayIncreasePerLine,
+                followingLineBaseDelay: baseDelayForFollowingLines,
                 catchUpCompletionRatio: catchUpCompletionRatio,
                 animationDuration: fullAnimationDuration
             ),
@@ -155,6 +160,7 @@ enum LyricPlaybackTimeline {
                 maximumLineOrder: maximumLineOrder,
                 delayPerLine: delayPerLine,
                 delayIncreasePerLine: delayIncreasePerLine,
+                followingLineBaseDelay: baseDelayForFollowingLines,
                 catchUpCompletionRatio: catchUpCompletionRatio,
                 animationDuration: availableAnimationDuration
             ),
@@ -168,6 +174,7 @@ enum LyricPlaybackTimeline {
         maximumLineOrder: Int,
         delayPerLine: TimeInterval,
         delayIncreasePerLine: TimeInterval,
+        followingLineBaseDelay: TimeInterval,
         catchUpCompletionRatio: Double,
         animationDuration: TimeInterval
     ) -> [LyricFocusCascadeLineTiming] {
@@ -184,11 +191,12 @@ enum LyricPlaybackTimeline {
                     duration: animationDuration
                 )
             }
-            let delay = accumulatedFocusCascadeDelay(
-                lineOrder: lineOrder,
-                delayPerLine: delayPerLine,
-                delayIncreasePerLine: delayIncreasePerLine
-            )
+            let delay = followingLineBaseDelay
+                + accumulatedFocusCascadeDelay(
+                    lineOrder: lineOrder,
+                    delayPerLine: delayPerLine,
+                    delayIncreasePerLine: delayIncreasePerLine
+                )
             return LyricFocusCascadeLineTiming(
                 delay: delay,
                 duration: max(

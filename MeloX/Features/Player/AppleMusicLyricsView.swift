@@ -648,6 +648,11 @@ struct AppleMusicLyricsView: View {
         _ frame: CGRect,
         for id: LyricLine.ID
     ) {
+        guard Self.isValidLyricFrame(frame) else {
+            lyricFrameByID.removeValue(forKey: id)
+            return
+        }
+
         let previousHeight = lyricFrameByID[id]?.height
         lyricFrameByID[id] = frame
         guard id == visualCascadeFocusLyricID,
@@ -952,8 +957,11 @@ struct AppleMusicLyricsView: View {
                     entry.key,
                     default: 0
                 ]
-                return frame.maxY + carriedOffset >= 0
-                    && frame.minY + carriedOffset <= visibleViewportHeight
+                return Self.isLyricFrameVisible(
+                    frame,
+                    movementOffset: carriedOffset,
+                    viewportHeight: visibleViewportHeight
+                )
             }
             .sorted { left, right in
                 let leftMinY = left.value.minY
@@ -1031,8 +1039,10 @@ struct AppleMusicLyricsView: View {
 
         let destinationVisibleIDs = lyricFrameByID
             .filter { entry in
-                let frame = entry.value
-                return frame.maxY >= 0 && frame.minY <= visibleViewportHeight
+                Self.isLyricFrameVisible(
+                    entry.value,
+                    viewportHeight: visibleViewportHeight
+                )
             }
             .sorted { left, right in
                 left.value.minY < right.value.minY
@@ -1095,6 +1105,8 @@ struct AppleMusicLyricsView: View {
                 settings.lyricsFocusCascadeDelay,
             preferredDelayIncreasePerLine:
                 settings.lyricsFocusCascadeDelayIncrease,
+            followingLineBaseDelay:
+                settings.lyricsFocusCascadeFollowingDelay,
             preferredCatchUpCompletionRatio:
                 settings.lyricsFocusCascadeCatchUpRatio,
             focusColorLeadTime: focusColorLeadTime,
@@ -1336,6 +1348,32 @@ struct AppleMusicLyricsView: View {
         let blurProgress = max(lineDistance - 1.35, 0)
         let baseRadius = min(blurProgress * 3.1, 10)
         return baseRadius * intensity
+    }
+
+    nonisolated private static func isValidLyricFrame(
+        _ frame: CGRect
+    ) -> Bool {
+        !frame.isNull
+            && !frame.isInfinite
+            && !frame.isEmpty
+            && frame.minY.isFinite
+            && frame.maxY.isFinite
+    }
+
+    nonisolated private static func isLyricFrameVisible(
+        _ frame: CGRect,
+        movementOffset: CGFloat = 0,
+        viewportHeight: CGFloat
+    ) -> Bool {
+        guard isValidLyricFrame(frame),
+              movementOffset.isFinite,
+              viewportHeight.isFinite,
+              viewportHeight > 0 else {
+            return false
+        }
+
+        return frame.maxY + movementOffset > 0
+            && frame.minY + movementOffset < viewportHeight
     }
 
     nonisolated private static func lyricVisualDistance(
